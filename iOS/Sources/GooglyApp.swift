@@ -34,7 +34,7 @@ struct RootView: View {
 
             SoundButton(link: link, live: live)
 
-            // Bluey's app: sessions, transcripts and settings.
+            // Velvet's app: sessions, transcripts and settings.
             Button { showApp = true } label: {
                 Image(systemName: "square.grid.2x2.fill")
                     .font(.system(size: 14, weight: .semibold))
@@ -43,13 +43,15 @@ struct RootView: View {
                     .background(Circle().fill(Color.white.opacity(0.06)).frame(width: 34, height: 34))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Open Bluey")
+            .accessibilityLabel("Open Velvet")
             .padding(.top, 10)
             .padding(.trailing, 62)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
 
             if showPairing && !link.connected {
-                PairingView { withAnimation(.easeOut(duration: 0.3)) { showPairing = false } }
+                PairingView(paired: link.paired, rejected: link.codeRejected, foundMac: !link.macs.isEmpty,
+                            onPair: { link.pair($0) },
+                            onPlay: { withAnimation(.easeOut(duration: 0.3)) { showPairing = false } })
                     .transition(.opacity)
             }
         }
@@ -57,7 +59,7 @@ struct RootView: View {
         .ignoresSafeArea()
         .phoneChrome()
         .fullScreenCover(isPresented: $showApp) {
-            BlueyAppView(store: store, live: live, link: link) { showApp = false }
+            VelvetAppView(store: store, live: live, link: link) { showApp = false }
         }
         .onAppear {
             link.onFace = { [animator] face in animator.receive(face, at: Date().timeIntervalSinceReferenceDate) }
@@ -71,6 +73,10 @@ struct RootView: View {
                 NotesSync.retryPending(store: store, link: link)
                 store.resyncRecent()
             }
+        }
+        .onChange(of: link.codeRejected) { _, rejected in
+            // If the code stops matching (e.g. the Mac made a new one), ask for it again.
+            if rejected { withAnimation(.easeOut(duration: 0.3)) { showPairing = true } }
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { link.start() } else if phase == .background { link.stop() }
@@ -107,19 +113,13 @@ struct RootView: View {
 
     /// Connects the live voice to the Mac: keys, tools, captions and wake/sleep.
     private func wireLiveVoice() {
-        live.requestToken = { [link] done in
-            link.request(Packet(command: "realtimeToken")) { reply in done(reply?.text) }
-        }
-        live.runTool = { [link] name, arguments, done in
-            link.request(Packet(command: "tool", tool: name, text: arguments)) { reply in
-                done(reply?.text ?? "The Mac didn't answer.", reply?.image)
-            }
+        live.ask = { [link] question, done in
+            link.request(Packet(command: "ask", text: question)) { reply in done(reply?.text) }
         }
         live.onSessionStart = { [store, live] in
             store.start()
             if let id = store.currentID { live.recorder.start(session: id) }
         }
-        live.resumeContext = { [store] in store.recentText() }
         live.recorder.onChunk = { [store, link] chunk in
             store.addPending(chunk.sessionID, index: chunk.index, started: chunk.started)
             NotesSync.upload(chunk.sessionID, index: chunk.index, started: chunk.started, store: store, link: link)
@@ -129,10 +129,6 @@ struct RootView: View {
         live.onUserTurn = { [store] item, asked in store.placeholder(itemID: item, asked: asked) }
         live.onUserWords = { [store] item, text, asked in store.heard(itemID: item, text: text, asked: asked) }
         live.onReply = { [store] text in store.reply(text) }
-        live.onReport = { [store] text in store.report(text) }
-        live.onCaption = { [link] text, finished in
-            link.send(Packet(command: finished ? "captionDone" : "caption", text: text))
-        }
         live.onStateChange = { [link, animator] state in
             switch state {
             case .asleep:

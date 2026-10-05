@@ -1,42 +1,32 @@
 import AVFoundation
 import Foundation
+import Speech
 
-/// A live session with OpenAI's Realtime API, running on the phone. Once he's awake the mic is on the whole
-/// time, so everything you say becomes context, but he stays quiet until you hold the screen and ask.
-/// He never talks out loud: replies are text (speech bubbles on the Mac) with a little cartoon chirp here.
-/// Tools (look at the screen, point) run on the Mac.
+/// Velvet's voice on the phone — fully local, no cloud, no key.
+///
+/// While he's awake the mic runs so meeting notes can record. When you press and hold the screen, Apple's
+/// on-device speech recognizer turns what you say into text; on release, that question is sent to the Mac,
+/// which does the thinking locally (Ollama) and runs the tools. He never talks out loud: his reply is a
+/// speech bubble on the Mac, with a little chirp here.
 final class LiveVoice: NSObject, ObservableObject {
     enum State: Equatable { case asleep, waking, listening, asking, thinking, speaking }
 
     @Published private(set) var state: State = .asleep
 
-    static let model = "gpt-realtime-2.1"
-
-    /// Asks the Mac for a short-lived key. Calls back with nil on failure.
-    var requestToken: ((@escaping (String?) -> Void) -> Void)?
-    /// Runs a tool on the Mac: (name, JSON arguments) → (output text, optional JPEG base64).
-    var runTool: ((String, String, @escaping (String, String?) -> Void) -> Void)?
-    /// What he's saying, as it streams in. `done` is true when the reply finished.
-    var onCaption: ((String, _ done: Bool) -> Void)?
+    /// Sends a question to the Mac; calls back with the reply text (nil if the Mac went away).
+    var ask: ((String, @escaping (String?) -> Void) -> Void)?
     var onStateChange: ((State) -> Void)?
-    /// For the saved transcript: a session started or ended, something you said (in order, then its words), his replies.
     var onSessionStart: (() -> Void)?
     var onSessionEnd: (() -> Void)?
+    /// For the saved transcript: a question you asked (placeholder first, then the words), and his replies.
     var onUserTurn: ((_ itemID: String, _ asked: Bool) -> Void)?
     var onUserWords: ((_ itemID: String, _ text: String, _ asked: Bool) -> Void)?
     var onReply: ((String) -> Void)?
-    var onReport: ((String) -> Void)?
-    /// Recent transcript, handed to a fresh connection so he keeps context in long sessions.
-    var resumeContext: (() -> String?)?
 
-    /// Records the whole session's audio for proper transcription (meeting notes).
+    /// Records the whole session's audio for meeting notes (transcribed later, on the Mac).
     let recorder = ChunkRecorder()
-    /// True from wake until you end the session. Dropped connections (sessions time out after an hour)
-    /// reconnect on their own while this is set, and the recording carries on.
-    private var wantAwake = false
-    private var reconnecting = false
 
-    /// Loudness of his chirp right now, 0…1.
+    private var wantAwake = false
     private(set) var level: Double = 0
 
     var volume: Double {
@@ -47,25 +37,21 @@ final class LiveVoice: NSObject, ObservableObject {
         }
     }
 
-    private var socket: URLSessionWebSocketTask?
+    // Audio: one engine with a continuous mic tap (for the recorder), also fed into speech recognition
+    // while you're holding to ask.
     private let engine = AVAudioEngine()
     private let player = AVAudioPlayerNode()
-    private var converter: AVAudioConverter?
-    private let wireFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 24000, channels: 1, interleaved: true)!
     private let playFormat = AVAudioFormat(standardFormatWithSampleRate: 24000, channels: 1)!
     private var audioReady = false
-
-    private var transcript = ""
     private var pendingBuffers = 0
-    private var responseActive = false
-    private var sleepAfterReply = false
-    /// Holding the screen to ask. Released before the session was ready: ask as soon as it is.
+
+    // Speech: on-device recognition, running only while you hold the screen.
+    private let recognizer = SFSpeechRecognizer()
+    private var request: SFSpeechAudioBufferRecognitionRequest?
+    private var task: SFSpeechRecognitionTask?
     private var holding = false
-    private var askWhenReady = false
-    private var chirpedThisResponse = false
-    /// Turns that were questions (said while holding, or committed when you let go).
-    private var askedItems: Set<String> = []
-    private var awaitingQuestion = false
+    private var questionItem: String?
+    private var latestTranscript = ""
 
     private func setState(_ new: State) {
         guard new != state else { return }
@@ -83,271 +69,149 @@ final class LiveVoice: NSObject, ObservableObject {
         guard state == .asleep else { return }
         wantAwake = true
         setState(.waking)
-        AVAudioApplication.requestRecordPermission { granted in
-            DispatchQueue.main.async {
-                guard granted else {
-                    self.onCaption?("I need the microphone. Turn it on for Bluey in the iPhone's Settings.", true)
-                    self.wantAwake = false
-                    self.setState(.asleep)
-                    return
-                }
-                guard let requestToken = self.requestToken else { self.wantAwake = false; self.setState(.asleep); return }
-                requestToken { token in
-                    DispatchQueue.main.async {
-                        guard self.state == .waking else { return }
-                        guard let token else { self.wantAwake = false; self.setState(.asleep); return }
-                        self.connect(token)
-                    }
-                }
+        requestPermissions { [weak self] granted in
+            guard let self else { return }
+            guard granted else {
+                self.onReply?("I need the microphone and speech recognition — turn them on for Velvet in Settings.")
+                self.wantAwake = false
+                self.setState(.asleep)
+                return
             }
+            guard self.state == .waking else { return }
+            do {
+                try self.startAudio()
+            } catch {
+                NSLog("Velvet: couldn't start audio: \(error)")
+                self.wantAwake = false
+                self.setState(.asleep)
+                return
+            }
+            self.onSessionStart?()
+            self.chirp(syllables: 2)
+            self.setState(.listening)
         }
     }
 
     func sleep() {
-        let wasRunning = wantAwake || socket != nil
+        let wasRunning = wantAwake
         wantAwake = false
-        reconnecting = false
+        holding = false
+        endRecognition()
         recorder.finish()
         if wasRunning { onSessionEnd?() }
-        askedItems = []
-        awaitingQuestion = false
-        socket?.cancel(with: .normalClosure, reason: nil)
-        socket = nil
         stopAudio()
-        transcript = ""
+        questionItem = nil
+        latestTranscript = ""
         pendingBuffers = 0
-        responseActive = false
-        sleepAfterReply = false
-        holding = false
-        askWhenReady = false
-        toolsRunning = 0
         level = 0
         setState(.asleep)
     }
 
-    /// Says a quick hi (for checking the chirp volume).
+    /// A quick chirp (for checking the volume), waking first if needed.
     func sayHi() {
-        guard socket != nil else { wake(); return }
-        send(["type": "response.create", "response": ["instructions": "Reply with a quick, cheerful hi in under eight words."]])
+        if state == .asleep { wake() } else { chirp(syllables: 3) }
     }
 
     // MARK: Hold to ask
 
-    /// You pressed and held the screen: what you say now is the question.
+    /// You pressed and held: start transcribing what you say now as the question.
     func beginAsk() {
-        holding = true
-        onCaption?("", false)  // clears his last bubble
         if state == .asleep { wake(); return }
-        guard socket != nil else { return }
-        if state == .listening || state == .speaking { setState(.asking) }
+        guard wantAwake, !holding else { return }
+        holding = true
+        startRecognition()
+        setState(.asking)
     }
 
-    /// You let go: he answers (or does the thing) using everything he's heard as context.
+    /// You let go: finish the transcription and send the question to the Mac.
     func endAsk() {
         guard holding else { return }
         holding = false
-        guard socket != nil, state != .waking else { askWhenReady = true; return }
-        ask()
-    }
-
-    private func ask() {
-        askWhenReady = false
         setState(.thinking)
-        awaitingQuestion = true
-        // Close off what you just said (it may still be mid-sentence) and ask for a reply.
-        send(["type": "input_audio_buffer.commit"])
-        send(["type": "response.create"])
-    }
-
-    // MARK: Connection
-
-    private func connect(_ token: String) {
-        var request = URLRequest(url: URL(string: "wss://api.openai.com/v1/realtime?model=\(Self.model)")!)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        let socket = URLSession.shared.webSocketTask(with: request)
-        self.socket = socket
-        socket.resume()
-        receive(on: socket)
-        if reconnecting {
-            // Same session, new connection: the mic and recording never stopped. Remind him what was said.
-            reconnecting = false
-            if let context = resumeContext?(), !context.isEmpty {
-                send(["type": "conversation.item.create",
-                      "item": ["type": "message", "role": "user",
-                               "content": [["type": "input_text", "text": "(Context: what I said earlier in this session, from my notes. Don't reply to this.)\n" + context]]]])
-            }
-            if askWhenReady { ask() } else { setState(holding ? .asking : .listening) }
-            return
-        }
-        do {
-            try startAudio()
-        } catch {
-            onCaption?("I couldn't start the microphone: \(error.localizedDescription)", true)
-            sleep()
-            return
-        }
-        onSessionStart?()
-        chirp(syllables: 2)
-        if askWhenReady {
-            ask()
-        } else {
-            setState(holding ? .asking : .listening)
+        request?.endAudio()
+        // If the final result is slow to land, fall back to the latest partial after a moment.
+        let item = questionItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+            guard let self, self.state == .thinking, self.questionItem == item else { return }
+            self.sendQuestion(self.latestTranscript)
         }
     }
 
-    /// The connection dropped mid-session: get a new key and carry on, keeping the mic and recording running.
-    private func reconnect(attempt: Int = 0) {
-        socket = nil
-        responseActive = false
-        toolsRunning = 0
-        guard wantAwake, let requestToken else { return }
-        reconnecting = true
-        requestToken { [weak self] token in
+    // MARK: Speech recognition (on-device, only while holding)
+
+    private func startRecognition() {
+        endRecognition()
+        latestTranscript = ""
+        let item = UUID().uuidString
+        questionItem = item
+        onUserTurn?(item, true)
+
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        request.requiresOnDeviceRecognition = recognizer?.supportsOnDeviceRecognition ?? false
+        self.request = request
+
+        task = recognizer?.recognitionTask(with: request) { [weak self] result, error in
             DispatchQueue.main.async {
-                guard let self, self.wantAwake, self.socket == nil else { return }
-                if let token {
-                    self.connect(token)
+                guard let self, self.questionItem == item else { return }
+                if let result {
+                    self.latestTranscript = result.bestTranscription.formattedString
+                    if result.isFinal { self.sendQuestion(self.latestTranscript) }
+                } else if error != nil, self.state == .thinking {
+                    self.sendQuestion(self.latestTranscript)
+                }
+            }
+        }
+    }
+
+    private func endRecognition() {
+        task?.cancel()
+        task = nil
+        request = nil
+    }
+
+    private func sendQuestion(_ raw: String) {
+        let question = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let item = questionItem
+        questionItem = nil
+        endRecognition()
+        if let item, !question.isEmpty { onUserWords?(item, question, true) }
+
+        guard !question.isEmpty, let ask else {
+            if wantAwake { setState(.listening) }
+            return
+        }
+        ask(question) { [weak self] answer in
+            DispatchQueue.main.async {
+                guard let self, self.wantAwake else { return }
+                let reply = answer?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if !reply.isEmpty {
+                    self.onReply?(reply)
+                    self.setState(.speaking)
+                    self.chirp(syllables: min(max(reply.split(separator: " ").count, 3), 5))
                 } else {
-                    // The Mac may be briefly away; keep trying (the recording continues meanwhile).
-                    DispatchQueue.main.asyncAfter(deadline: .now() + min(30, 2 + Double(attempt) * 3)) {
-                        self.reconnect(attempt: attempt + 1)
-                    }
+                    self.setState(.listening)
                 }
             }
         }
     }
 
-    private func send(_ event: [String: Any]) {
-        guard let socket, let data = try? JSONSerialization.data(withJSONObject: event),
-              let text = String(data: data, encoding: .utf8) else { return }
-        socket.send(.string(text)) { error in
-            if let error { NSLog("Googly realtime send error: \(error)") }
-        }
-    }
-
-    private func receive(on socket: URLSessionWebSocketTask) {
-        socket.receive { [weak self] result in
-            guard let self, socket === self.socket else { return }
-            switch result {
-            case .success(.string(let text)):
-                if let data = text.data(using: .utf8),
-                   let event = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                    DispatchQueue.main.async { self.handle(event) }
-                }
-                self.receive(on: socket)
-            case .success:
-                self.receive(on: socket)
-            case .failure(let error):
-                NSLog("Googly realtime closed: \(error)")
-                DispatchQueue.main.async {
-                    guard socket === self.socket else { return }
-                    if self.wantAwake { self.reconnect() } else { self.sleep() }
-                }
-            }
-        }
-    }
-
-    // MARK: Events
-
-    private func handle(_ event: [String: Any]) {
-        guard let type = event["type"] as? String else { return }
-        switch type {
-        case "response.created":
-            responseActive = true
-            transcript = ""
-            chirpedThisResponse = false
-
-        case "response.output_text.delta", "response.output_audio_transcript.delta":
-            if let delta = event["delta"] as? String {
-                transcript += delta
-                if !chirpedThisResponse, !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    chirpedThisResponse = true
-                    setState(.speaking)
-                    chirp(syllables: min(max(transcript.split(separator: " ").count, 3), 5))
-                }
-                onCaption?(transcript, false)
-            }
-
-        case "input_audio_buffer.committed":
-            if let item = event["item_id"] as? String {
-                let asked = holding || awaitingQuestion
-                if asked { askedItems.insert(item) }
-                if awaitingQuestion, !holding { awaitingQuestion = false }
-                onUserTurn?(item, asked)
-            }
-
-        case "conversation.item.input_audio_transcription.completed":
-            if let item = event["item_id"] as? String, let text = event["transcript"] as? String {
-                onUserWords?(item, text, askedItems.contains(item))
-            }
-
-        case "response.done":
-            responseActive = false
-            if !transcript.isEmpty {
-                onCaption?(transcript, true)
-                onReply?(transcript)
-            }
-            let output = (event["response"] as? [String: Any])?["output"] as? [[String: Any]] ?? []
-            let calls = output.filter { $0["type"] as? String == "function_call" }
-            if !calls.isEmpty {
-                if state != .speaking { setState(.thinking) }
-                runTools(calls)
-            }
-            finishIfQuiet()
-
-        case "error":
-            let error = event["error"] as? [String: Any]
-            if (error?["code"] as? String) == "input_audio_buffer_commit_empty" { awaitingQuestion = false }
-            let message = (error?["message"] as? String) ?? "Something went wrong."
-            NSLog("Googly realtime error: \(message)")
-
-        default:
-            break
-        }
-    }
-
-    private func runTools(_ calls: [[String: Any]]) {
-        var remaining = calls.count
-        toolsRunning += 1
-        var images: [String] = []
-        for call in calls {
-            let name = call["name"] as? String ?? ""
-            let callID = call["call_id"] as? String ?? ""
-            let arguments = call["arguments"] as? String ?? "{}"
-            if name == "go_to_sleep" { sleepAfterReply = true }
-            let finish: (String, String?) -> Void = { [weak self] output, image in
-                DispatchQueue.main.async {
-                    guard let self, self.socket != nil else { return }
-                    if name == "web_research", let range = output.range(of: "\n---REPORT---\n") {
-                        self.onReport?(String(output[range.upperBound...]))
-                    }
-                    self.send(["type": "conversation.item.create",
-                               "item": ["type": "function_call_output", "call_id": callID, "output": output]])
-                    if let image { images.append(image) }
-                    remaining -= 1
-                    if remaining == 0 {
-                        self.toolsRunning = max(0, self.toolsRunning - 1)
-                        // Screenshots go in as a user image so he can actually see the screen.
-                        for image in images {
-                            self.send(["type": "conversation.item.create",
-                                       "item": ["type": "message", "role": "user",
-                                                "content": [["type": "input_image", "image_url": "data:image/jpeg;base64,\(image)"]]]])
-                        }
-                        self.send(["type": "response.create"])
-                    }
-                }
-            }
-            if let runTool { runTool(name, arguments, finish) } else { finish("The Mac isn't connected.", nil) }
-        }
-    }
-
-    private var toolsRunning = 0
-
-    /// Back to listening once he's replied and chirped (or asleep, if he said goodbye).
+    /// Back to listening once his chirp has finished playing.
     private func finishIfQuiet() {
-        guard pendingBuffers == 0, !responseActive, toolsRunning == 0 else { return }
-        if sleepAfterReply { sleep(); return }
-        if state == .speaking || state == .thinking { setState(holding ? .asking : .listening) }
+        guard pendingBuffers == 0 else { return }
+        level = 0
+        if wantAwake, state == .speaking || state == .thinking { setState(.listening) }
+    }
+
+    // MARK: Permissions
+
+    private func requestPermissions(_ done: @escaping (Bool) -> Void) {
+        AVAudioApplication.requestRecordPermission { mic in
+            guard mic else { DispatchQueue.main.async { done(false) }; return }
+            SFSpeechRecognizer.requestAuthorization { status in
+                DispatchQueue.main.async { done(status == .authorized) }
+            }
+        }
     }
 
     // MARK: Audio
@@ -360,26 +224,18 @@ final class LiveVoice: NSObject, ObservableObject {
         #endif
 
         if !audioReady {
-            let input = engine.inputNode
-            try input.setVoiceProcessingEnabled(true)  // echo cancellation, so he doesn't hear himself
             engine.attach(player)
             engine.connect(player, to: engine.mainMixerNode, format: playFormat)
-            player.installTap(onBus: 0, bufferSize: 1024, format: playFormat) { [weak self] buffer, _ in
-                guard let self, let samples = buffer.floatChannelData?[0] else { return }
-                var sum: Float = 0
-                for i in 0..<Int(buffer.frameLength) { sum += samples[i] * samples[i] }
-                let rms = sqrt(sum / Float(max(buffer.frameLength, 1)))
-                self.level = min(1, Double(rms) * 5)
-            }
             audioReady = true
         }
         let input = engine.inputNode
+        try input.setVoiceProcessingEnabled(true)  // echo cancellation, so he doesn't hear his own chirp
         let inputFormat = input.outputFormat(forBus: 0)
-        converter = AVAudioConverter(from: inputFormat, to: wireFormat)
         input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 2400, format: inputFormat) { [weak self] buffer, _ in
-            self?.recorder.append(buffer)
-            self?.sendMic(buffer)
+            guard let self else { return }
+            self.recorder.append(buffer)
+            if self.holding { self.request?.append(buffer) }
         }
         player.volume = Float(volume)
         engine.prepare()
@@ -394,26 +250,6 @@ final class LiveVoice: NSObject, ObservableObject {
         #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         #endif
-    }
-
-    private func sendMic(_ buffer: AVAudioPCMBuffer) {
-        guard let converter else { return }
-        let ratio = wireFormat.sampleRate / buffer.format.sampleRate
-        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio + 32)
-        guard let out = AVAudioPCMBuffer(pcmFormat: wireFormat, frameCapacity: capacity) else { return }
-        var fed = false
-        var error: NSError?
-        converter.convert(to: out, error: &error) { _, status in
-            if fed { status.pointee = .noDataNow; return nil }
-            fed = true
-            status.pointee = .haveData
-            return buffer
-        }
-        guard error == nil, out.frameLength > 0, let samples = out.int16ChannelData?[0] else { return }
-        let data = Data(bytes: samples, count: Int(out.frameLength) * 2)
-        DispatchQueue.main.async {
-            self.send(["type": "input_audio_buffer.append", "audio": data.base64EncodedString()])
-        }
     }
 
     /// A tiny cartoon chirp: a few soft, round, bell-like notes from a happy pentatonic scale,
@@ -449,12 +285,12 @@ final class LiveVoice: NSObject, ObservableObject {
               let out = buffer.floatChannelData?[0] else { return }
         buffer.frameLength = AVAudioFrameCount(samples.count)
         samples.withUnsafeBufferPointer { out.update(from: $0.baseAddress!, count: samples.count) }
+        level = min(1, Double(syllables) * 0.25 + 0.3)
         pendingBuffers += 1
         player.scheduleBuffer(buffer) { [weak self] in
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.pendingBuffers = max(0, self.pendingBuffers - 1)
-                if self.pendingBuffers == 0 { self.level = 0 }
                 self.finishIfQuiet()
             }
         }

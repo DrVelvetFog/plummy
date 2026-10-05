@@ -136,7 +136,7 @@ enum NotesSync {
         }
     }
 
-    static func send(_ sessions: [BlueySession], store: SessionStore, link: MacLink) {
+    static func send(_ sessions: [VelvetSession], store: SessionStore, link: MacLink) {
         guard link.connected else { return }
         for session in sessions {
             let entries: [[String: Any]] = session.displayEntries.map { entry in

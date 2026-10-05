@@ -1,5 +1,7 @@
 import Foundation
 import Network
+import CryptoKit
+import Security
 
 /// Everything the Mac and the iPhone agree on: the Bonjour service name,
 /// what a "face update" looks like, and how lines of JSON travel over TCP.
@@ -67,13 +69,55 @@ public struct Packet: Codable, Sendable {
     }
 }
 
+/// The pairing secret that locks the phone to one Mac. The Mac shows a code in its menu; the phone
+/// is typed that code once. Both derive the same key from it — used as a TLS pre-shared key, so only
+/// a peer with the code can connect and all traffic is encrypted.
+public enum Pairing {
+    /// A fresh random pairing code, like `K7MP-9QRT-X2WF` (no look-alike I/O/0/1).
+    public static func newCode() -> String {
+        let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+        var bytes = [UInt8](repeating: 0, count: 12)
+        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        let chars = bytes.map { alphabet[Int($0) % alphabet.count] }
+        let s = String(chars)
+        return "\(s.prefix(4))-\(s.dropFirst(4).prefix(4))-\(s.suffix(4))"
+    }
+
+    /// A 32-byte key derived from the code, ignoring case, spaces and hyphens.
+    public static func psk(from code: String) -> Data {
+        let norm = code.uppercased().filter { $0.isLetter || $0.isNumber }
+        return Data(SHA256.hash(data: Data(("velvet-pairing-v1" + norm).utf8)))
+    }
+}
+
 public extension NWParameters {
-    static var googly: NWParameters {
+    /// Plain parameters for Bonjour discovery only (the browser just finds Macs; no TLS yet).
+    static var googlyBrowse: NWParameters {
+        let tcp = NWProtocolTCP.Options()
+        tcp.noDelay = true
+        let params = NWParameters(tls: nil, tcp: tcp)
+        params.includePeerToPeer = true
+        return params
+    }
+
+    /// Authenticated + encrypted parameters for the real link: TLS with a pre-shared key from the
+    /// pairing code. Only a peer with the same code completes the handshake (TLS 1.2, AES-128-GCM).
+    static func googly(psk: Data) -> NWParameters {
+        let tls = NWProtocolTLS.Options()
+        let sec = tls.securityProtocolOptions
+        let keyDD = psk.withUnsafeBytes { DispatchData(bytes: $0) }
+        let idDD = Data("velvet".utf8).withUnsafeBytes { DispatchData(bytes: $0) }
+        sec_protocol_options_add_pre_shared_key(sec, keyDD as __DispatchData, idDD as __DispatchData)
+        if let cipher = tls_ciphersuite_t(rawValue: 0x00A8) {  // TLS_PSK_WITH_AES_128_GCM_SHA256
+            sec_protocol_options_append_tls_ciphersuite(sec, cipher)
+        }
+        sec_protocol_options_set_min_tls_protocol_version(sec, .TLSv12)
+        sec_protocol_options_set_max_tls_protocol_version(sec, .TLSv12)
         let tcp = NWProtocolTCP.Options()
         tcp.noDelay = true
         tcp.enableKeepalive = true
         tcp.keepaliveIdle = 2
-        let params = NWParameters(tls: nil, tcp: tcp)
+        let params = NWParameters(tls: tls, tcp: tcp)
         params.includePeerToPeer = true
         return params
     }

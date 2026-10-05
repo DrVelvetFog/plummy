@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Fonts.registerBundled()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = MenuIcon.make()
-        statusItem.button?.toolTip = "Bluey"
+        statusItem.button?.toolTip = "Velvet"
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
@@ -27,22 +27,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let path = ProcessInfo.processInfo.environment["GOOGLY_DEMO_TRANSCRIBE"], let audio = FileManager.default.contents(atPath: path) {
             // Transcribes an audio file into a throwaway notes folder, prints the lines and quits.
             Task {
+                let out = ProcessInfo.processInfo.environment["GOOGLY_DEMO_TRANSCRIBE_OUT"] ?? "/tmp/velvet-demo-transcript.txt"
                 do {
                     let result = try await MeetingNotes.transcribe(audio: audio, session: "demo0000", index: 1, sessionStarted: Date())
+                    let lines = result.segments.map { "[\($0.start)] \($0.speaker): \($0.text)" }.joined(separator: "\n")
                     for s in result.segments { print("[\(s.start)] \(s.speaker): \(s.text)") }
+                    try? (lines.isEmpty ? "(empty transcription)" : lines).write(toFile: out, atomically: true, encoding: .utf8)
                     try? FileManager.default.removeItem(at: result.folder)
-                } catch { print("failed:", error) }
+                } catch {
+                    print("failed:", error)
+                    try? "failed: \(error.localizedDescription)".write(toFile: out, atomically: true, encoding: .utf8)
+                }
                 exit(0)
             }
         }
         if let question = ProcessInfo.processInfo.environment["GOOGLY_DEMO_RESEARCH"] {
             host.demoResearch(question, out: ProcessInfo.processInfo.environment["GOOGLY_DEMO_OUT"] ?? "/tmp/googly-report")
         }
+        if ProcessInfo.processInfo.environment["GOOGLY_DEMO_CLAUDE"] != nil {
+            // One trivial Claude round-trip to confirm the key and measure latency + tokens, then quit.
+            Task {
+                let out = ProcessInfo.processInfo.environment["GOOGLY_DEMO_CLAUDE_OUT"] ?? "/tmp/velvet-claude-ping.txt"
+                let result = await AnthropicClient.ping()
+                try? result.write(toFile: out, atomically: true, encoding: .utf8)
+                exit(0)
+            }
+        }
         server.onPhonesChanged = { [weak self] names in
             self?.refreshIcon()
             if names.isEmpty, self?.host.awake == true { self?.host.setAwake(false) }
         }
         server.onRequest = { [weak self] packet, reply in self?.host.handle(packet, reply: reply) }
+        server.pairingPSK = Pairing.psk(from: Self.pairingCode())
         server.start()
         host.onChange = { [weak self] in self?.refreshIcon() }
 
@@ -57,9 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // ⌃⌥S stops him using the computer right away.
         HotKeys.shared.register(keyCode: kVK_ANSI_S) { [weak self] in self?.stopActions() }
 
-        if Keychain.get(.openai) == nil {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.editKeys() }
-        }
+        // Velvet's brain is local (Ollama) — no OpenAI key needed, so no key prompt on launch.
     }
 
     private func refreshIcon() {
@@ -131,12 +145,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         server.broadcast(Packet(command: host.awake ? "sleep" : "wake"))
     }
 
-    /// On launch, asks for whatever he still needs (so Bluey shows up in those Settings lists),
+    /// On launch, asks for whatever he still needs (so Velvet shows up in those Settings lists),
     /// and keeps a small status file so it's easy to check what's allowed.
     private func checkPermissions() {
         guard ProcessInfo.processInfo.environment["GOOGLY_DEMO_OUT"] == nil else { return }
         if settings.computerControl && !ComputerControl.isTrusted { ComputerControl.askForPermission() }
         if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
+        MeetingNotes.primePermission()
         let status = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Googly/status.txt")
         Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
@@ -148,6 +163,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openNotes() {
         try? FileManager.default.createDirectory(at: MeetingNotes.root, withIntermediateDirectories: true)
         NSWorkspace.shared.open(MeetingNotes.root)
+    }
+
+    /// The pairing code shown on the Mac and typed into the phone — created once, then remembered.
+    static func pairingCode() -> String {
+        if let code = Keychain.get(.pairing) { return code }
+        let code = Pairing.newCode()
+        Keychain.set(.pairing, code)
+        return code
+    }
+
+    @objc private func showPairingCode() {
+        let alert = NSAlert()
+        alert.messageText = "Velvet pairing code"
+        alert.informativeText = """
+        Type this into Velvet on your iPhone to pair it with this Mac:
+
+        \(Self.pairingCode())
+
+        Only a phone with this code can connect, and everything between them is encrypted. Make a new code to unpair every phone (you'll re-enter it on the iPhone).
+        """
+        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: "New Code…")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertSecondButtonReturn {
+            let code = Pairing.newCode()
+            Keychain.set(.pairing, code)
+            server.rekey(Pairing.psk(from: code))
+            showPairingCode()
+        }
     }
 
     @objc private func stopActions() {
@@ -200,20 +244,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         restartIfAwake()
     }
 
-    @objc private func editKeys() {
+    @objc private func editAnthropicKey() {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "OpenAI API Key"
-        alert.informativeText = "Saved privately on this Mac (not in the project files). The phone only ever gets short-lived keys."
+        alert.messageText = "Anthropic API Key"
+        alert.informativeText = """
+        Paste your Anthropic key to let Velvet think with Claude instead of the local model — smarter at \
+        multi-step, and it can see the screen. While a key is set, screen text and screenshots are sent to \
+        Anthropic and it bills your key. Saved privately on this Mac. Leave empty and Save to clear it and go \
+        back to the fully-local brain.
+        """
         let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
-        field.placeholderString = Keychain.get(.openai) == nil ? "sk-…" : "Key saved. Paste a new one to replace it."
+        field.placeholderString = Keychain.get(.anthropic) == nil ? "sk-ant-…" : "Key saved (using Claude). Empty + Save to go local."
         alert.accessoryView = field
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
         alert.window.initialFirstResponder = field
         guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let key = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !key.isEmpty { Keychain.set(.openai, key) }
+        Keychain.set(.anthropic, field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    /// Flip between the local brain and Claude. With no key yet, turning it on opens the key dialog.
+    @objc private func toggleClaudeBrain() {
+        if Keychain.get(.anthropic) == nil {
+            settings.useClaudeBrain = true
+            editAnthropicKey()
+        } else {
+            settings.useClaudeBrain.toggle()
+        }
     }
 
     @objc private func setMood(_ item: NSMenuItem) {
@@ -285,7 +343,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(item("Open Meeting Notes", #selector(openNotes)))
         menu.addItem(item("Personality…", #selector(editPersonality)))
-        menu.addItem(item("OpenAI Key…", #selector(editKeys)))
+        menu.addItem(item("Anthropic API Key…", #selector(editAnthropicKey)))
+        let claude = item("Think with Claude", #selector(toggleClaudeBrain))
+        claude.state = (settings.useClaudeBrain && Keychain.get(.anthropic) != nil) ? .on : .off
+        claude.toolTip = "On: smarter, sees the screen, uses your Anthropic key (cloud). Off: fully-local brain."
+        menu.addItem(claude)
+        menu.addItem(item("Pairing Code…", #selector(showPairingCode)))
         menu.addItem(.separator())
 
         let trailMenu = NSMenu()
@@ -305,7 +368,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(show)
 
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit Bluey", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: "Quit Velvet", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }
 
     /// Menu item that shows its global shortcut (⌃⌥ + key) when given one.
@@ -323,7 +386,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 }
 
-/// The little blueberry blob with eyes for the menu bar.
+/// The little plum blob with eyes for the menu bar.
 enum MenuIcon {
     static func make() -> NSImage {
         let image = NSImage(size: NSSize(width: 22, height: 18), flipped: true) { rect in

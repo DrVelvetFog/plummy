@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Bluey's own app screen: start or end a session, see past sessions and their transcripts, and settings.
+/// Velvet's own app screen: start or end a session, see past sessions and their transcripts, and settings.
 /// Opened from the faint button in the top-right corner of his face.
-struct BlueyAppView: View {
+struct VelvetAppView: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var live: LiveVoice
     @ObservedObject var link: MacLink
@@ -34,10 +34,10 @@ struct BlueyAppView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(spacing: 12) {
-                    MiniBluey()
+                    MiniVelvet()
                         .frame(width: 54, height: 48)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Bluey")
+                        Text("Velvet")
                             .font(.fredoka(28))
                             .foregroundStyle(.white)
                         HStack(spacing: 6) {
@@ -183,7 +183,7 @@ struct BlueyAppView: View {
 }
 
 private struct SessionRow: View {
-    let session: BlueySession
+    let session: VelvetSession
     let live: Bool
 
     var body: some View {
@@ -234,19 +234,19 @@ struct SessionDetailView: View {
     @State private var copied = false
 
     /// A prompt for an agent (like Claude Code on the Mac) that points it at this session's notes files.
-    private func copyPrompt(_ session: BlueySession) {
-        let root = "~/Documents/Bluey Notes"
+    private func copyPrompt(_ session: VelvetSession) {
+        let root = "~/Documents/Velvet Notes"
         let path = session.notesPath.map { p -> String in
             // Show the Mac path with ~ for the home folder.
-            if let range = p.range(of: "/Documents/Bluey Notes") { return "~" + p[range.lowerBound...] }
+            if let range = p.range(of: "/Documents/Velvet Notes") { return "~" + p[range.lowerBound...] }
             return p
         } ?? "\(root)/ (the folder starting \(session.started.formatted(.iso8601.year().month().day())))"
         let prompt = """
-        I recorded a meeting with my Bluey app on \(session.started.formatted(date: .complete, time: .shortened)). \
+        I recorded a meeting with my Velvet app on \(session.started.formatted(date: .complete, time: .shortened)). \
         The notes are on my Mac in \(path)
 
         - notes.md: the full transcript with timestamps and speaker labels (A, B, … per five-minute chunk), plus \
-        my questions to Bluey, its replies and research reports. Start here.
+        my questions to Velvet, its replies and research reports. Start here.
         - session.json: the same data, structured.
         - audio/: the original recording in five-minute chunks.
 
@@ -261,7 +261,7 @@ struct SessionDetailView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { copied = false }
     }
 
-    private var session: BlueySession? { store.sessions.first { $0.id == id } }
+    private var session: VelvetSession? { store.sessions.first { $0.id == id } }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -381,7 +381,7 @@ private struct EntryView: View {
             }
         case .reply:
             HStack(alignment: .bottom, spacing: 8) {
-                MiniBluey().frame(width: 28, height: 25)
+                MiniVelvet().frame(width: 28, height: 25)
                 Text(entry.text)
                     .font(.fredoka(16))
                     .foregroundStyle(Color(hex: Palette.ink))
@@ -423,8 +423,8 @@ private struct EntryView: View {
     }
 }
 
-/// A tiny Bluey: the blob with two googly eyes.
-struct MiniBluey: View {
+/// A tiny Velvet: the blob with two googly eyes.
+struct MiniVelvet: View {
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width

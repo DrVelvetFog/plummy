@@ -18,16 +18,16 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.visionairy.googly.phone
-        PRODUCT_NAME: Bluey
+        PRODUCT_NAME: Velvet
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: NF73NSV867
+        DEVELOPMENT_TEAM: 3Q7ZZFFVFP
         # Set your team in Xcode (Signing & Capabilities) the first time you run it.
     info:
       path: iOS/Info.plist
       properties:
-        CFBundleDisplayName: Bluey
+        CFBundleDisplayName: Velvet
         UILaunchScreen: {}
         UIRequiresFullScreen: true
         UIStatusBarHidden: true
@@ -35,8 +35,9 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        NSLocalNetworkUsageDescription: Bluey finds the Mac app on your Wi-Fi so the character can look where it points.
-        NSMicrophoneUsageDescription: Talk to your blueberry. He listens while he's awake (double tap him to wake him up or put him to sleep).
+        NSLocalNetworkUsageDescription: Velvet finds the Mac app on your Wi-Fi so the character can look where it points.
+        NSMicrophoneUsageDescription: Talk to Velvet. He listens while he's awake (double tap him to wake him up or put him to sleep).
+        NSSpeechRecognitionUsageDescription: Velvet turns what you say into text right on your iPhone, so your question can be sent to the Mac. Nothing is sent to Apple or the cloud.
         NSBonjourServices:
           - _googly._tcp
         UIAppFonts:

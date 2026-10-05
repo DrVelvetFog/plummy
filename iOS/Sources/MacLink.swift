@@ -9,12 +9,18 @@ import UIKit
 final class MacLink: ObservableObject {
     @Published private(set) var connected = false
     @Published private(set) var macName: String?
-    /// Every Mac running Bluey on this Wi-Fi, by its Bonjour name.
+    /// Every Mac running Velvet on this Wi-Fi, by its Bonjour name.
     @Published private(set) var macs: [String] = []
     /// The Mac the phone is linked to (or trying to link to).
     @Published private(set) var currentMac: String?
     /// The Mac picked in the speaker panel. Remembered, so the phone goes back to it on launch.
     @Published private(set) var preferredMac: String? = UserDefaults.standard.string(forKey: "preferredMac")
+    /// Whether a pairing code (from the Mac's menu) has been saved. The link is TLS-encrypted with a key from it.
+    @Published private(set) var paired: Bool = (UserDefaults.standard.string(forKey: "pairingCode") ?? "").isEmpty == false
+    /// Set when the Mac is visible but the code doesn't match, so the UI can ask for it again.
+    @Published var codeRejected = false
+    private var handshakeFailures = 0
+    private var pairingCode: String { UserDefaults.standard.string(forKey: "pairingCode") ?? "" }
     /// Commands from the Mac, like "wake" and "sleep".
     var onCommand: ((String) -> Void)?
     private var waiting: [String: (Packet?) -> Void] = [:]
@@ -27,7 +33,7 @@ final class MacLink: ObservableObject {
 
     func start() {
         guard browser == nil else { return }
-        let browser = NWBrowser(for: .bonjour(type: GooglyService.type, domain: nil), using: .googly)
+        let browser = NWBrowser(for: .bonjour(type: GooglyService.type, domain: nil), using: .googlyBrowse)
         browser.browseResultsChangedHandler = { [weak self] results, _ in
             guard let self else { return }
             self.macs = results.compactMap(Self.serviceName).sorted()
@@ -68,6 +74,19 @@ final class MacLink: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: work)
     }
 
+    /// Save the pairing code typed on the phone (from the Mac's **Pairing Code…** menu) and connect with it.
+    func pair(_ code: String) {
+        let trimmed = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        UserDefaults.standard.set(trimmed, forKey: "pairingCode")
+        paired = !trimmed.isEmpty
+        codeRejected = false
+        handshakeFailures = 0
+        link?.cancel()
+        link = nil
+        connected = false
+        if browser == nil { start() } else { connectIfNeeded() }
+    }
+
     /// Switches to another Mac and remembers the choice.
     func choose(_ name: String) {
         preferredMac = name
@@ -82,25 +101,29 @@ final class MacLink: ObservableObject {
     }
 
     private func connectIfNeeded() {
-        guard link == nil, let results = browser?.browseResults, !results.isEmpty else { return }
+        guard link == nil, !codeRejected, !pairingCode.isEmpty,
+              let results = browser?.browseResults, !results.isEmpty else { return }
         let result = results.first { Self.serviceName($0) == preferredMac } ?? results.first!
         currentMac = Self.serviceName(result)
-        let link = LineConnection(NWConnection(to: result.endpoint, using: .googly))
+        let link = LineConnection(NWConnection(to: result.endpoint, using: .googly(psk: Pairing.psk(from: pairingCode))))
         link.onState = { [weak self, weak link] state in
             guard let self, let link, link === self.link else { return }
             switch state {
             case .ready:
                 self.connected = true
+                self.handshakeFailures = 0
+                self.codeRejected = false
                 link.send(Packet(hello: Self.deviceName))
-            case .failed, .cancelled:
-                self.connected = false
-                let waiting = self.waiting
-                self.waiting = [:]
-                waiting.values.forEach { $0(nil) }
-                self.macName = nil
-                self.link = nil
-                self.scheduleRetry()
-            case .waiting:
+            case .failed(let error):
+                self.noteHandshake(error)
+                self.dropLink()
+                if !self.codeRejected { self.scheduleRetry() }
+            case .cancelled:
+                self.dropLink()
+                if !self.codeRejected { self.scheduleRetry() }
+            case .waiting(let error):
+                // A wrong pairing code surfaces here as a TLS "bad MAC"; a missing Mac does not.
+                self.noteHandshake(error)
                 link.cancel()
             default:
                 break
@@ -118,6 +141,25 @@ final class MacLink: ObservableObject {
         }
         self.link = link
         link.start()
+    }
+
+    /// Counts TLS handshake failures (a mismatched pairing code); after two, flags the code as rejected
+    /// so the UI can ask for it again. A missing Mac fails differently and never trips this.
+    private func noteHandshake(_ error: NWError) {
+        if case .tls = error {
+            handshakeFailures += 1
+            if handshakeFailures >= 2 { codeRejected = true }
+        }
+    }
+
+    /// Clears the current link and fails any in-flight requests.
+    private func dropLink() {
+        connected = false
+        let pending = waiting
+        waiting = [:]
+        pending.values.forEach { $0(nil) }
+        macName = nil
+        link = nil
     }
 
     func send(_ packet: Packet) {

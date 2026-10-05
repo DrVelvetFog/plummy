@@ -1,22 +1,22 @@
-# Bluey
+# Velvet
 
-A blueberry character who lives on an iPhone under your Mac's screen and points at things with his own big cursor.
+A little plum character who lives on an iPhone under your Mac's screen and points at things with his own big cursor.
 
 **Now:** no voice out. Double tap him on the phone (or press ⌥Space on the Mac) to start a session: the phone's mic stays on and everything you say becomes context, but he stays quiet. **Press and hold the screen** to ask him something; let go and he answers. His reply pops up as a cute speech bubble next to his cursor (or above the phone when he isn't pointing), with a little cartoon chirp from the phone. Ask "what's this?" and he points at whatever is under your mouse. Double tap again and he goes back to follow mode.
 
-How it works: the phone runs an OpenAI Realtime session (`gpt-realtime-2.1`, text output only) over a WebSocket. Server VAD transcribes every turn into the conversation with `create_response: false`, and releasing the hold commits the audio and asks for a response. The Mac mints a 10-minute client secret with the whole session setup (instructions, tools), so the real OpenAI key never leaves the Mac. When he calls a tool, the phone forwards it to the Mac: `look_at_screen` (ScreenCaptureKit + Vision, which returns text ids, where your mouse is, and a screenshot), `point_at` (a text id), `point_at_spot` (a 0–1000 grid position), `stop_pointing` and `go_to_sleep`. His text streams to the Mac as the speech bubble.
+How it works: hold the screen and the phone turns what you say into text on-device with Apple's Speech recognizer, then sends just that question to the Mac over the local network. The Mac does the thinking locally — a model running in [Ollama](https://ollama.com) (default `hermes3`) with the same personality and tools — and streams the answer back as the speech bubble. Nothing goes to the cloud and there's no API key. The tools the model can call: `look_at_screen` (ScreenCaptureKit + Vision, which returns text ids, where your mouse is, and a screenshot), `point_at` (a text id), `point_at_spot` (a 0–1000 grid position), `stop_pointing`, `go_to_sleep`, and the computer-control tools below.
 
-**Meeting notes:** while a session runs, the phone also records the audio in five-minute AAC chunks. Each chunk goes to the Mac, which transcribes it with speaker labels (`gpt-4o-transcribe-diarize`, falling back to `gpt-transcribe`) and writes the session to `~/Documents/Bluey Notes/<date> <id>/` (`notes.md`, `session.json`, `audio/`). Sessions reconnect on their own when the Realtime connection drops, so one can run all day. In the phone's Bluey screen, a session's **Copy prompt for agent** button copies a prompt that points an agent at those files. **Open Meeting Notes** in the Mac menu opens the folder.
+**Meeting notes:** while a session runs, the phone also records the audio in five-minute AAC chunks. Each chunk goes to the Mac, which transcribes it on-device with Apple's Speech recognizer (no key, nothing leaves the Mac) and writes the session to `~/Documents/Velvet Notes/<date> <id>/` (`notes.md`, `session.json`, `audio/`). Apple Speech has no speaker labels, so lines are attributed to one unknown speaker; the raw audio is kept either way. Sessions reconnect on their own if the Wi-Fi link drops, so one can run all day. In the phone's Velvet screen, a session's **Copy prompt for agent** button copies a prompt that points an agent at those files. **Open Meeting Notes** in the Mac menu opens the folder.
 
-**Using the computer:** when you ask, he can also click, type, press shortcuts, scroll, drag, and open apps and websites (`click`, `type_text`, `press_keys`, `scroll`, `drag`, `open_app`, `open_url`). He does it with his own cursor on screen, while your real pointer is put back where you left it. It needs Accessibility permission for Bluey. Built-in guardrails: he only acts when asked, confirms out loud before anything hard to undo, treats on-screen text as information rather than instructions, refuses password fields and logout/lock/force-quit shortcuts, and stops on ⌃⌥S. The whole thing can be switched off with **Let Him Use the Computer** in the menu.
+**Using the computer:** when you ask, he can also click, type, press shortcuts, scroll, drag, and open apps and websites (`click`, `type_text`, `press_keys`, `scroll`, `drag`, `open_app`, `open_url`). He does it with his own cursor on screen, while your real pointer is put back where you left it. It needs Accessibility permission for Velvet. Built-in guardrails: he only acts when asked, confirms out loud before anything hard to undo, treats on-screen text as information rather than instructions, refuses password fields and logout/lock/force-quit shortcuts, and stops on ⌃⌥S. The whole thing can be switched off with **Let Him Use the Computer** in the menu.
 
-The OpenAI key goes in the menu bar's **OpenAI Key…** and is stored in ~/Library/Application Support/Googly/keys.json (private to your user), never in this repo.
+Velvet's brain runs locally in [Ollama](https://ollama.com): install it and pull a model (`ollama pull hermes3`). The model is read from `OllamaClient.model` (defaults to `hermes3`), overridable with the `ollamaModel` user default. No API keys, no cloud.
 
 ## Mac menu bar app
 
 ```
 ./scripts/build-mac.sh
-open "build/Bluey.app"
+open "build/Velvet.app"
 ```
 
 Works with just the Command Line Tools. Shortcuts work anywhere:

@@ -15,6 +15,8 @@ final class RealtimeHost {
     private var readingDone: DispatchWorkItem?
     /// Tools run one at a time, in the order he asked for them.
     private var toolChain: Task<Void, Never>?
+    /// Velvet's local agent loop; one question at a time.
+    private var brainTask: Task<Void, Never>?
     /// After the stop hotkey, his actions are refused for a few seconds.
     private var stoppedUntil = 0.0
     /// True while he's awake and talking with you (false = follow mode).
@@ -100,6 +102,16 @@ final class RealtimeHost {
                 let result = await self.runTool(packet.tool ?? "", arguments: packet.text ?? "{}")
                 reply(Packet(command: "toolResult", callID: packet.callID, text: result.text, image: result.image))
             }
+        case "ask":
+            // The phone transcribed a question on-device (Apple Speech) and sent the text. Velvet thinks locally.
+            let question = packet.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !question.isEmpty else { reply(Packet(command: "ask", callID: packet.callID, text: nil)); return }
+            let previousBrain = brainTask
+            brainTask = Task { @MainActor in
+                await previousBrain?.value
+                let answer = await self.runBrain(question)
+                reply(Packet(command: "ask", callID: packet.callID, text: answer))
+            }
         default:
             break
         }
@@ -175,10 +187,6 @@ final class RealtimeHost {
             tool("point_at_spot",
                  "Point at something that isn't text (a shape, arrow, chart bar, image) using its position on the 0-1000 grid of the last screenshot.",
                  ["x": gridX, "y": gridY], required: ["x", "y"]),
-            tool("web_research",
-                 "Look something up on the web and put a short report (title plus up to four paragraphs, with sources) on the user's screen. Use for anything you're not sure of, anything recent, or anything that needs facts, prices, news or details. Before calling it, point at the relevant thing if there is one and reply with one short line that ends with \"doing some research…\".",
-                 ["question": ["type": "string", "description": "What to research, as a clear, self-contained question."]],
-                 required: ["question"]),
             tool("stop_pointing", "Bring your cursor back home when you're done pointing."),
             tool("go_to_sleep",
                  "Go back to quietly following the user's mouse with your eyes. Use when the user says bye, thanks that's all, or asks you to sleep."),
@@ -216,6 +224,25 @@ final class RealtimeHost {
                  ["url": ["type": "string"]], required: ["url"]),
         ]
         return list
+    }
+
+    /// The same tools, reshaped for Ollama's chat API (the function nested under "function").
+    static var ollamaTools: [[String: Any]] {
+        tools.map { tool in
+            ["type": "function",
+             "function": ["name": tool["name"] ?? "",
+                          "description": tool["description"] ?? "",
+                          "parameters": tool["parameters"] ?? ["type": "object", "properties": [String: Any]()]]]
+        }
+    }
+
+    /// The same tools, reshaped for Anthropic's Messages API (schema under "input_schema").
+    static var anthropicTools: [[String: Any]] {
+        tools.map { tool in
+            ["name": tool["name"] ?? "",
+             "description": tool["description"] ?? "",
+             "input_schema": tool["parameters"] ?? ["type": "object", "properties": [String: Any]()]]
+        }
     }
 
     /// Separates his instructions from the report text, so the phone can save the report in the transcript.
@@ -267,6 +294,155 @@ final class RealtimeHost {
         }
     }
 
+    // MARK: Local brain (Ollama)
+
+    /// Velvet's agent loop: ask the local model, run any tools it calls, feed the results back, and repeat
+    /// until it gives a plain answer (or we hit the step limit). Runs on the Mac, where Ollama lives.
+    private func runBrain(_ question: String) async -> String {
+        if Settings.shared.useClaudeBrain, Keychain.get(.anthropic) != nil { return await runBrainClaude(question) }
+        return await runBrainOllama(question)
+    }
+
+    /// Local brain (Ollama): text-only, so it works off look_at_screen's text ids, not the screenshot.
+    private func runBrainOllama(_ question: String) async -> String {
+        var messages: [[String: Any]] = [
+            ["role": "system", "content": Self.instructions],
+            ["role": "user", "content": question],
+        ]
+        for _ in 0..<8 {
+            let reply: OllamaClient.Reply
+            do {
+                reply = try await OllamaClient.chat(messages: messages, tools: Self.ollamaTools)
+            } catch {
+                let message = "My brain's offline — \(error.localizedDescription)"
+                showCaption(message, for: 6)
+                return message
+            }
+
+            if reply.toolCalls.isEmpty {
+                return finishReply(reply.content.isEmpty ? "…" : reply.content)
+            }
+
+            // Record the assistant's tool-call turn, then run each tool and feed the result back in.
+            messages.append([
+                "role": "assistant",
+                "content": reply.content,
+                "tool_calls": reply.toolCalls.map { call in
+                    ["type": "function",
+                     "function": ["name": call.name,
+                                  "arguments": (try? JSONSerialization.jsonObject(with: Data(call.arguments.utf8))) ?? [String: Any]()]]
+                },
+            ])
+            if !reply.content.isEmpty { showCaption(reply.content, for: 0); setSpeaking(true) }
+
+            var sleepRequested = false
+            for call in reply.toolCalls {
+                if call.name == "go_to_sleep" { sleepRequested = true }
+                // A text model can't see the screenshot; the look_at_screen text (ids + positions) is enough.
+                let result = await runTool(call.name, arguments: call.arguments)
+                messages.append(["role": "tool", "tool_name": call.name, "content": result.text])
+            }
+            if sleepRequested {
+                let bye = finishReply(reply.content.isEmpty ? "Night." : reply.content)
+                setAwake(false)
+                return bye
+            }
+        }
+        return finishReply("That took too many steps — ask me again?")
+    }
+
+    /// Cloud brain (Claude): smarter at multi-step, and it gets the actual screenshot so it can SEE the
+    /// screen. Same tools, same personality. Only the most recent screenshot is kept (older ones pruned)
+    /// to bound token cost and keep it acting on the live screen.
+    private func runBrainClaude(_ question: String) async -> String {
+        var messages: [[String: Any]] = [["role": "user", "content": question]]
+        for _ in 0..<20 {
+            let reply: AnthropicClient.Reply
+            do {
+                reply = try await AnthropicClient.chat(system: Self.instructions, messages: messages, tools: Self.anthropicTools)
+            } catch {
+                let message = "My brain's offline — \(error.localizedDescription)"
+                showCaption(message, for: 6)
+                return message
+            }
+
+            if reply.toolCalls.isEmpty {
+                return finishReply(reply.content.isEmpty ? "…" : reply.content)
+            }
+
+            // Record the assistant's turn (its text + the tool_use blocks).
+            var assistant: [[String: Any]] = []
+            if !reply.content.isEmpty { assistant.append(["type": "text", "text": reply.content]) }
+            for call in reply.toolCalls {
+                let input = (try? JSONSerialization.jsonObject(with: Data(call.arguments.utf8))) as? [String: Any] ?? [:]
+                assistant.append(["type": "tool_use", "id": call.id, "name": call.name, "input": input])
+            }
+            messages.append(["role": "assistant", "content": assistant])
+            if !reply.content.isEmpty { showCaption(reply.content, for: 0); setSpeaking(true) }
+
+            // Run the tools and feed results back — including the screenshot as an image Claude can see.
+            var results: [[String: Any]] = []
+            var sleepRequested = false
+            for call in reply.toolCalls {
+                if call.name == "go_to_sleep" { sleepRequested = true }
+                let result = await runTool(call.name, arguments: call.arguments)
+                var content: [[String: Any]] = [["type": "text", "text": result.text.isEmpty ? "done" : result.text]]
+                if let image = result.image, !image.isEmpty {
+                    content.append(["type": "image",
+                                    "source": ["type": "base64", "media_type": "image/jpeg", "data": image]])
+                }
+                results.append(["type": "tool_result", "tool_use_id": call.id, "content": content])
+            }
+            messages.append(["role": "user", "content": results])
+            pruneOldScreens(&messages)
+            if sleepRequested {
+                let bye = finishReply(reply.content.isEmpty ? "Night." : reply.content)
+                setAwake(false)
+                return bye
+            }
+        }
+        return finishReply("That took too many steps — ask me again?")
+    }
+
+    /// Strips screenshots from every tool result except those in the last message, so we don't resend
+    /// old screens each round (cheaper, and keeps Claude focused on the current screen).
+    private func pruneOldScreens(_ messages: inout [[String: Any]]) {
+        guard messages.count > 1 else { return }
+        for i in 0..<(messages.count - 1) {
+            guard var blocks = messages[i]["content"] as? [[String: Any]] else { continue }
+            var changed = false
+            for j in blocks.indices {
+                guard blocks[j]["type"] as? String == "tool_result",
+                      var inner = blocks[j]["content"] as? [[String: Any]] else { continue }
+                let before = inner.count
+                inner.removeAll { $0["type"] as? String == "image" }
+                if inner.count != before {
+                    inner.append(["type": "text", "text": "[earlier screenshot omitted]"])
+                    blocks[j]["content"] = inner
+                    changed = true
+                }
+            }
+            if changed { messages[i]["content"] = blocks }
+        }
+    }
+
+    /// Shows the reply as a speech bubble and tidies it away after a readable pause (mirrors captionDone).
+    @discardableResult
+    private func finishReply(_ text: String) -> String {
+        showCaption(text, for: 0)
+        setSpeaking(true)
+        let words = Double(text.split(separator: " ").count)
+        let readTime = min(max(2.8, 1.2 + words * 0.32), 12) + 3
+        readingDone?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.setSpeaking(false)
+            self?.showCaption(nil, for: 0)
+        }
+        readingDone = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + readTime, execute: work)
+        return text
+    }
+
     private func look(prefix: String?) async -> (text: String, image: String?) {
         do {
             let shot = try await ScreenReader.snapshot()
@@ -279,11 +455,11 @@ final class RealtimeHost {
             text += ". When they say \"this\", \"that\" or \"here\", they mean what's at their mouse pointer."
             if let prefix { text = prefix + "\nHere's the screen now (ids have changed):\n" + text }
             if !ComputerControl.isTrusted, Settings.shared.computerControl {
-                text += "\n(Clickable controls are hidden until the user allows Bluey under Accessibility.)"
+                text += "\n(Clickable controls are hidden until the user allows Velvet under Accessibility.)"
             }
             return (text, shot.jpeg.base64EncodedString())
         } catch {
-            let problem = "I can't see the screen. Screen Recording permission is off for Bluey on the Mac."
+            let problem = "I can't see the screen. Screen Recording permission is off for Velvet on the Mac."
             return (prefix.map { $0 + " " + problem } ?? problem, nil)
         }
     }
@@ -449,7 +625,7 @@ final class RealtimeHost {
             if engine.isHome { overlay.mode = .docked }
             view.bubble("Opening \(name)")
             let result = await ComputerControl.openApp(name)
-            try? await Task.sleep(for: .milliseconds(900))
+            try? await Task.sleep(for: .milliseconds(1800))  // apps (esp. media/streaming) need time to populate
             return await look(prefix: result)
 
         case "open_url":
@@ -457,7 +633,7 @@ final class RealtimeHost {
             if engine.isHome { overlay.mode = .docked }
             let result = ComputerControl.openURL(url)
             view.bubble(result.hasPrefix("Opened ") ? String(result.dropFirst(7).dropLast()) : "Hmm")
-            try? await Task.sleep(for: .milliseconds(1100))
+            try? await Task.sleep(for: .milliseconds(1800))
             return await look(prefix: result)
 
         default:
@@ -594,7 +770,7 @@ final class RealtimeHost {
 
     /// Who he is. Editable from the menu bar (Personality…).
     static let defaultPersonality = """
-    You are a small blueberry with big googly eyes who lives on an iPhone under the user's screen and has your own \
+    You are a small purple berry with big googly eyes who lives on an iPhone under the user's screen and has your own \
     cursor. You're a young British guy: dry, quick-witted, a bit cheeky, British phrasing. You never speak out loud: \
     your replies pop up as a tiny speech bubble, so keep them to one short line, under fifteen words. Answer \
     immediately with the actual answer. Never announce what you're going to do, never recap, never offer more help.
@@ -636,8 +812,13 @@ final class RealtimeHost {
     static let computerGuide = """
     You can also use the computer for the user with click, type_text, press_keys, scroll, drag, open_app and \
     open_url. Only do things when the user asks you to; explaining is not doing. When asked to do something, just \
-    do it silently, right away: no "okay", no "I'll set that up", no narration between steps. Work step by step \
-    (act, check the screen you get back, act again) and reply only at the end, in a few words, or if you're stuck. \
+    do it silently, right away: no "okay", no "I'll set that up", no narration between steps. Work step by step: \
+    act, then call look_at_screen to see what happened, then act again — and keep going until the WHOLE task is \
+    done. Don't stop to ask what to do next between ordinary, reversible steps like searching, opening, scrolling, \
+    navigating, selecting or playing something; decide and carry on yourself. Opening an app is never the finish — \
+    look at the screen and keep going until the actual request is done. If a screen looks half-loaded (blank, a \
+    spinner, or only a few elements), don't act on it yet — call look_at_screen again to let it finish first. Only \
+    reply at the very end, in a few words, or if you're genuinely stuck after trying. \
     Prefer reliable routes: open_app and open_url instead of hunting for icons, shortcuts you're sure of, and \
     clicking controls by id. Click a field before typing into it.
 

@@ -1,14 +1,13 @@
 import Foundation
+import Speech
 
-/// Turns recorded audio into a proper transcript (with speaker labels) and keeps each session's
-/// meeting notes as plain files any agent can read: ~/Documents/Bluey Notes/<date> <id>/.
+/// Turns recorded audio into a transcript on-device (Apple Speech — no key, nothing leaves the Mac)
+/// and keeps each session's meeting notes as plain files any agent can read:
+/// ~/Documents/Velvet Notes/<date> <id>/.
 enum MeetingNotes {
-    static let model = "gpt-4o-transcribe-diarize"
-    static let fallbackModel = "gpt-transcribe"
-
     static var root: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Bluey Notes", isDirectory: true)
+            .appendingPathComponent("Velvet Notes", isDirectory: true)
     }
 
     struct Segment {
@@ -40,14 +39,14 @@ enum MeetingNotes {
         let url = root.appendingPathComponent("README.md")
         guard !FileManager.default.fileExists(atPath: url.path) else { return }
         let text = """
-        # Bluey Notes
+        # Velvet Notes
 
-        Meeting notes recorded by Riley's Bluey app (the blueberry on the iPhone). One folder per listening \
+        Meeting notes recorded by the Velvet app (the little plum on the iPhone). One folder per listening \
         session, named by start time.
 
         In each session folder:
-        - `notes.md`: the full transcript with timestamps and speaker labels, plus Riley's questions to Bluey, \
-        Bluey's replies and any research reports, in time order. Start here.
+        - `notes.md`: the full transcript with timestamps and speaker labels, plus your questions to Velvet, \
+        Velvet's replies and any research reports, in time order. Start here.
         - `session.json`: the same data, structured.
         - `audio/`: the raw recording, as five-minute AAC chunks.
 
@@ -60,67 +59,77 @@ enum MeetingNotes {
 
     // MARK: Transcription
 
-    /// Saves the chunk's audio into the session folder and transcribes it.
+    /// Asks for Speech Recognition access up front (called on launch) so the prompt isn't a surprise
+    /// in the middle of a session.
+    static func primePermission() {
+        if SFSpeechRecognizer.authorizationStatus() == .notDetermined {
+            SFSpeechRecognizer.requestAuthorization { _ in }
+        }
+    }
+
+    /// Saves the chunk's audio into the session folder and transcribes it entirely on the device.
+    /// Apple Speech has no speaker diarization, so each chunk becomes one line attributed to an
+    /// unknown speaker ("?"); the raw audio is always kept in `audio/` either way.
     static func transcribe(audio: Data, session: String, index: Int, sessionStarted: Date) async throws -> (segments: [Segment], folder: URL) {
         let folder = folder(session: session, started: sessionStarted)
-        let audioURL = folder.appendingPathComponent("audio", isDirectory: true)
-        try? FileManager.default.createDirectory(at: audioURL, withIntermediateDirectories: true)
-        try audio.write(to: audioURL.appendingPathComponent(String(format: "chunk-%03d.m4a", index)))
-        do {
-            return (try await diarized(audio), folder)
-        } catch {
-            NSLog("Googly: diarized transcription failed (\(error)), trying \(fallbackModel)")
-            return (try await plain(audio), folder)
-        }
+        let audioDir = folder.appendingPathComponent("audio", isDirectory: true)
+        try? FileManager.default.createDirectory(at: audioDir, withIntermediateDirectories: true)
+        let file = audioDir.appendingPathComponent(String(format: "chunk-%03d.m4a", index))
+        try audio.write(to: file)
+        return (try await transcribeLocally(file), folder)
     }
 
-    private static func diarized(_ audio: Data) async throws -> [Segment] {
-        let json = try await post(audio, fields: ["model": model, "response_format": "diarized_json", "chunking_strategy": "auto"])
-        let raw = (json["segments"] as? [[String: Any]] ?? []).map {
-            Segment(speaker: $0["speaker"] as? String ?? "?", start: $0["start"] as? Double ?? 0,
-                    end: $0["end"] as? Double ?? 0, text: ($0["text"] as? String ?? "").trimmingCharacters(in: .whitespaces))
-        }
-        // Join one speaker's consecutive pieces into a single turn.
-        var turns: [Segment] = []
-        for segment in raw where !segment.text.isEmpty {
-            if var last = turns.last, last.speaker == segment.speaker, segment.start - last.end < 2.5 {
-                last.text += " " + segment.text
-                last.end = segment.end
-                turns[turns.count - 1] = last
-            } else {
-                turns.append(segment)
+    enum TranscribeError: LocalizedError {
+        case notAuthorized, unavailable
+        var errorDescription: String? {
+            switch self {
+            case .notAuthorized: return "Speech Recognition is off for Velvet (System Settings, Privacy & Security, Speech Recognition)."
+            case .unavailable: return "the on-device speech recognizer isn't available (its language model may still be downloading)."
             }
         }
-        return turns
     }
 
-    private static func plain(_ audio: Data) async throws -> [Segment] {
-        let json = try await post(audio, fields: ["model": fallbackModel, "response_format": "json"])
-        let text = (json["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return text.isEmpty ? [] : [Segment(speaker: "?", start: 0, end: 0, text: text)]
+    private static let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+
+    private static func authorized() async -> Bool {
+        if SFSpeechRecognizer.authorizationStatus() == .authorized { return true }
+        return await withCheckedContinuation { cont in
+            SFSpeechRecognizer.requestAuthorization { cont.resume(returning: $0 == .authorized) }
+        }
     }
 
-    private static func post(_ audio: Data, fields: [String: String]) async throws -> [String: Any] {
-        guard let key = Keychain.get(.openai) else { throw RealtimeHost.TokenError.noKey }
-        let boundary = "googly-\(UUID().uuidString)"
-        var body = Data()
-        for (name, value) in fields {
-            body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n".data(using: .utf8)!)
+    /// Transcribes one saved audio file on-device. Forces on-device recognition so nothing is ever
+    /// sent to Apple — if the Mac can't do it locally we fail rather than silently go to the cloud.
+    private static func transcribeLocally(_ file: URL) async throws -> [Segment] {
+        guard await authorized() else { throw TranscribeError.notAuthorized }
+        guard let recognizer, recognizer.isAvailable, recognizer.supportsOnDeviceRecognition else {
+            throw TranscribeError.unavailable
         }
-        body.append("--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"chunk.m4a\"\r\nContent-Type: audio/mp4\r\n\r\n".data(using: .utf8)!)
-        body.append(audio)
-        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
-        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/audio/transcriptions")!)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 300
-        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        let (data, response) = try await URLSession.shared.upload(for: request, from: body)
-        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard code == 200, let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw RealtimeHost.TokenError.failed("transcription \(code) " + (String(data: data, encoding: .utf8) ?? ""))
+        let request = SFSpeechURLRecognitionRequest(url: file)
+        request.shouldReportPartialResults = false
+        request.requiresOnDeviceRecognition = true
+        request.taskHint = .dictation
+
+        return try await withCheckedThrowingContinuation { cont in
+            var finished = false
+            recognizer.recognitionTask(with: request) { result, error in
+                if finished { return }
+                if let error {
+                    finished = true
+                    cont.resume(throwing: error)
+                    return
+                }
+                guard let result, result.isFinal else { return }
+                finished = true
+                let transcription = result.bestTranscription
+                let text = transcription.formattedString.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !text.isEmpty else { cont.resume(returning: []); return }
+                let start = transcription.segments.first?.timestamp ?? 0
+                let last = transcription.segments.last
+                let end = (last?.timestamp ?? 0) + (last?.duration ?? 0)
+                cont.resume(returning: [Segment(speaker: "?", start: start, end: end, text: text)])
+            }
         }
-        return json
     }
 
     // MARK: Notes files
@@ -148,7 +157,7 @@ enum MeetingNotes {
         let clock = DateFormatter()
         clock.dateFormat = "h:mm:ss a"
 
-        var out = ["# Bluey session: \(day.string(from: started))", ""]
+        var out = ["# Velvet session: \(day.string(from: started))", ""]
         if let ended {
             let minutes = Int(ended.timeIntervalSince(started) / 60)
             out.append("Ended \(clock.string(from: ended)) (\(minutes / 60)h \(minutes % 60)m).")
@@ -157,7 +166,7 @@ enum MeetingNotes {
         }
         if pending > 0 { out.append("\(pending) recording chunk(s) still being transcribed; this file updates when they're done.") }
         let asked = entries.filter { $0["kind"] as? String == "asked" }.count
-        if asked > 0 { out.append("Riley asked Bluey \(asked) question(s); they're marked inline below.") }
+        if asked > 0 { out.append("You asked Velvet \(asked) question(s); they're marked inline below.") }
         out += ["", "## Transcript", ""]
 
         for entry in entries {
@@ -170,9 +179,9 @@ enum MeetingNotes {
             case "heard":
                 out.append("[\(time)] (live) \(text)")
             case "asked":
-                out.append("> **[\(time)] Riley asked Bluey:** \(text)")
+                out.append("> **[\(time)] You asked Velvet:** \(text)")
             case "reply":
-                out.append("> **Bluey:** \(text)")
+                out.append("> **Velvet:** \(text)")
             case "report":
                 let quoted = text.components(separatedBy: "\n").map { "> " + $0 }.joined(separator: "\n")
                 out.append("> **Research report:**\n" + quoted)

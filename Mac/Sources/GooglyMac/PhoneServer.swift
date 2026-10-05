@@ -11,6 +11,9 @@ final class PhoneServer {
     private var lastSentAt = Date.distantPast
     private var restartWork: DispatchWorkItem?
 
+    /// The TLS pre-shared key derived from the pairing code. Set before `start()`.
+    var pairingPSK = Data()
+
     /// Called with the names of connected phones whenever that list changes.
     var onPhonesChanged: (([String]) -> Void)?
 
@@ -21,7 +24,7 @@ final class PhoneServer {
 
     func start() {
         do {
-            let listener = try NWListener(using: .googly)
+            let listener = try NWListener(using: .googly(psk: pairingPSK))
             listener.service = NWListener.Service(name: Host.current().localizedName ?? "Mac", type: GooglyService.type)
             listener.newConnectionHandler = { [weak self] connection in
                 self?.accept(connection)
@@ -78,6 +81,19 @@ final class PhoneServer {
             }
         }
         link.start()
+    }
+
+    /// Switch to a new pairing key: drop every current phone and re-listen, so only a phone with the
+    /// new code can connect again.
+    func rekey(_ psk: Data) {
+        pairingPSK = psk
+        for phone in phones.values { phone.link.cancel() }
+        phones.removeAll()
+        restartWork?.cancel()
+        listener?.cancel()
+        listener = nil
+        start()
+        onPhonesChanged?(phoneNames)
     }
 
     /// Sends a command to every phone (e.g. "wake", "sleep").

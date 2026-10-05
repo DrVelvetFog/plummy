@@ -23,7 +23,7 @@ struct PendingChunk: Codable, Equatable {
 }
 
 /// Everything from one wake-to-sleep session.
-struct BlueySession: Codable, Identifiable, Equatable {
+struct VelvetSession: Codable, Identifiable, Equatable {
     var id = UUID()
     var started: Date
     var ended: Date?
@@ -58,14 +58,14 @@ struct BlueySession: Codable, Identifiable, Equatable {
     var exportText: String {
         let time = DateFormatter()
         time.dateFormat = "h:mm:ss a"
-        var lines = ["Bluey session, \(started.formatted(date: .abbreviated, time: .shortened))", ""]
+        var lines = ["Velvet session, \(started.formatted(date: .abbreviated, time: .shortened))", ""]
         for entry in displayEntries {
             let who: String
             switch entry.kind {
             case .transcript: who = "Speaker \(entry.speaker ?? "?")"
             case .heard: who = "You"
             case .asked: who = "You asked"
-            case .reply: who = "Bluey"
+            case .reply: who = "Velvet"
             case .report: who = "Research"
             }
             lines.append("[\(time.string(from: entry.time))] \(who): \(entry.text)")
@@ -76,7 +76,7 @@ struct BlueySession: Codable, Identifiable, Equatable {
 
 /// Keeps every session on the phone, as one JSON file in the app's Documents folder.
 final class SessionStore: ObservableObject {
-    @Published private(set) var sessions: [BlueySession] = []  // newest first
+    @Published private(set) var sessions: [VelvetSession] = []  // newest first
     @Published private(set) var currentID: UUID?
 
     private let fileURL: URL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -85,7 +85,7 @@ final class SessionStore: ObservableObject {
 
     init() {
         if let data = try? Data(contentsOf: fileURL),
-           let saved = try? JSONDecoder().decode([BlueySession].self, from: data) {
+           let saved = try? JSONDecoder().decode([VelvetSession].self, from: data) {
             // A session left open by a crash or force-quit is closed at its last line.
             sessions = saved.map { session in
                 var session = session
@@ -95,11 +95,11 @@ final class SessionStore: ObservableObject {
         }
     }
 
-    var current: BlueySession? { sessions.first { $0.id == currentID } }
+    var current: VelvetSession? { sessions.first { $0.id == currentID } }
 
     func start() {
         end()
-        let session = BlueySession(started: Date())
+        let session = VelvetSession(started: Date())
         sessions.insert(session, at: 0)
         currentID = session.id
         save()
@@ -188,7 +188,7 @@ final class SessionStore: ObservableObject {
         guard let current else { return nil }
         let text = current.displayEntries
             .filter { $0.kind != .report }
-            .map { ($0.kind == .reply ? "Bluey: " : "") + $0.text }
+            .map { ($0.kind == .reply ? "Velvet: " : "") + $0.text }
             .joined(separator: "\n")
         return text.isEmpty ? nil : String(text.suffix(limit))
     }
@@ -196,7 +196,7 @@ final class SessionStore: ObservableObject {
     // MARK: Sync to the Mac (it writes the meeting-notes files)
 
     /// Called with sessions that changed, a few seconds after the changes settle.
-    var onSync: (([BlueySession]) -> Void)?
+    var onSync: (([VelvetSession]) -> Void)?
     private var dirty: Set<UUID> = []
     private var syncWork: DispatchWorkItem?
 
@@ -225,12 +225,12 @@ final class SessionStore: ObservableObject {
         save()
     }
 
-    private func update(_ change: (inout BlueySession) -> Void) {
+    private func update(_ change: (inout VelvetSession) -> Void) {
         guard let id = currentID else { return }
         update(id, change)
     }
 
-    private func update(_ id: UUID, _ change: (inout BlueySession) -> Void) {
+    private func update(_ id: UUID, _ change: (inout VelvetSession) -> Void) {
         guard let index = sessions.firstIndex(where: { $0.id == id }) else { return }
         change(&sessions[index])
         dirty.insert(id)

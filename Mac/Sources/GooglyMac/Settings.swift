@@ -47,6 +47,12 @@ final class Settings {
         set { defaults.set(newValue, forKey: "computerControl"); onChange?() }
     }
 
+    /// Think with Claude (cloud) when an Anthropic key is set. Off = always the local brain.
+    var useClaudeBrain: Bool {
+        get { defaults.object(forKey: "useClaudeBrain") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "useClaudeBrain") }
+    }
+
     /// How the cursor's path shows while it flies.
     var trail: PointerTrail {
         get { PointerTrail(rawValue: defaults.string(forKey: "trail") ?? "") ?? .comet }

@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>Bluey</string>
+	<string>Velvet</string>
 	<key>CFBundleDisplayName</key>
-	<string>Bluey</string>
+	<string>Velvet</string>
 	<key>CFBundleIdentifier</key>
 	<string>co.visionairy.googly.mac</string>
 	<key>CFBundleExecutable</key>
@@ -21,11 +21,11 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Bluey talks to the character on your iPhone over your local network.</string>
+	<string>Velvet talks to the character on your iPhone over your local network.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Hold ⌥Space and talk to ask Bluey a question.</string>
+	<string>Hold ⌥Space and talk to ask Velvet a question.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Bluey turns what you say into text so it can answer you.</string>
+	<string>Velvet turns what you say into text so it can answer you.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_googly._tcp</string>
