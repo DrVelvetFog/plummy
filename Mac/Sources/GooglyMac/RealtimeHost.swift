@@ -802,11 +802,6 @@ final class RealtimeHost {
     mouse pointer, which look_at_screen tells you. Point at the most specific thing (a word or number rather than a \
     whole line). For shapes, arrows or charts with no text, use point_at_spot. If the screen may have changed, look \
     again. When the user says goodbye or asks you to sleep, reply with a very short goodbye and call go_to_sleep.
-
-    Research: when answering well needs facts you're not sure of, anything recent, or details from the web, use \
-    web_research. In that one response: point at the relevant thing on screen if there is one, write one short \
-    line that ends with "doing some research…", then call web_research. The report appears in a card on the \
-    screen; afterwards reply with just one short takeaway line.
     """
 
     static let computerGuide = """

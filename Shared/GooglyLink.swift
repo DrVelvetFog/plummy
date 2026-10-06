@@ -77,7 +77,10 @@ public enum Pairing {
     public static func newCode() -> String {
         let alphabet = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
         var bytes = [UInt8](repeating: 0, count: 12)
-        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
+            // Without real entropy the code (and the PSK derived from it) would be predictable.
+            fatalError("Velvet: secure random generator unavailable; refusing to make a weak pairing code")
+        }
         let chars = bytes.map { alphabet[Int($0) % alphabet.count] }
         let s = String(chars)
         return "\(s.prefix(4))-\(s.dropFirst(4).prefix(4))-\(s.suffix(4))"
@@ -132,6 +135,9 @@ public final class LineConnection {
     private var buffer = Data()
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
+    /// A single line (even an audio or screenshot packet) stays well under this; the cap only guards
+    /// against a peer that streams bytes without ever sending a newline (unbounded-memory DoS).
+    private static let maxBufferBytes = 64 * 1024 * 1024
 
     public init(_ connection: NWConnection) {
         self.connection = connection
@@ -160,6 +166,11 @@ public final class LineConnection {
             guard let self else { return }
             if let data, !data.isEmpty {
                 self.buffer.append(data)
+                if self.buffer.count > Self.maxBufferBytes {
+                    NSLog("Googly: dropping connection; unframed data exceeded \(Self.maxBufferBytes) bytes")
+                    self.connection.cancel()
+                    return
+                }
                 while let newline = self.buffer.firstIndex(of: 0x0A) {
                     let line = self.buffer[self.buffer.startIndex..<newline]
                     self.buffer.removeSubrange(self.buffer.startIndex...newline)

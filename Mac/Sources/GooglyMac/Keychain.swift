@@ -1,40 +1,81 @@
 import Foundation
+import Security
 
-/// API keys live in a private file in ~/Library/Application Support/Googly (readable only by you),
-/// never in the project folder or git. Unlike the Keychain, this never asks for your password.
+/// API keys and the pairing secret live in the macOS Keychain — encrypted at rest and gated by the
+/// system — not in a file. The first time it runs, it migrates any keys from the old plaintext file
+/// (`~/Library/Application Support/Googly/keys.json`) into the Keychain and then removes that file,
+/// but only once every key has been read back from the Keychain, so a key is never lost.
 enum Keychain {
-    enum Key: String {
+    enum Key: String, CaseIterable {
         case anthropic, elevenlabs, openai, pairing
     }
 
-    private static var cache: [String: String]?
-
-    private static var fileURL: URL {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Googly", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true,
-                                                 attributes: [.posixPermissions: 0o700])
-        return dir.appendingPathComponent("keys.json")
-    }
-
-    private static func load() -> [String: String] {
-        if let cache { return cache }
-        let stored = (try? Data(contentsOf: fileURL))
-            .flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: String] } ?? [:]
-        cache = stored
-        return stored
-    }
+    /// The Keychain "service" these items are filed under (visible in Keychain Access).
+    private static let service = "Velvet"
 
     static func get(_ key: Key) -> String? {
-        guard let value = load()[key.rawValue], !value.isEmpty else { return nil }
-        return value
+        migrateIfNeeded()
+        return read(key.rawValue)
     }
 
     static func set(_ key: Key, _ value: String?) {
-        var all = load()
-        all[key.rawValue] = value?.isEmpty == false ? value : nil
-        cache = all
-        guard let data = try? JSONSerialization.data(withJSONObject: all, options: [.prettyPrinted, .sortedKeys]) else { return }
-        FileManager.default.createFile(atPath: fileURL.path, contents: data, attributes: [.posixPermissions: 0o600])
+        migrateIfNeeded()
+        write(key.rawValue, value?.isEmpty == false ? value : nil)
+    }
+
+    // MARK: Keychain primitives
+
+    private static func read(_ account: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+              let data = item as? Data, let value = String(data: data, encoding: .utf8), !value.isEmpty
+        else { return nil }
+        return value
+    }
+
+    private static func write(_ account: String, _ value: String?) {
+        let base: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+        ]
+        guard let value, let data = value.data(using: .utf8) else {
+            SecItemDelete(base as CFDictionary)
+            return
+        }
+        let attrs: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked,
+        ]
+        if SecItemUpdate(base as CFDictionary, attrs as CFDictionary) == errSecItemNotFound {
+            SecItemAdd(base.merging(attrs) { _, new in new } as CFDictionary, nil)
+        }
+    }
+
+    // MARK: One-time migration from the old plaintext file
+
+    private static var migrated = false
+
+    private static func migrateIfNeeded() {
+        if migrated { return }
+        migrated = true
+        let file = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Googly", isDirectory: true)
+            .appendingPathComponent("keys.json")
+        guard let data = try? Data(contentsOf: file),
+              let stored = try? JSONSerialization.jsonObject(with: data) as? [String: String] else { return }
+        var allMoved = true
+        for (account, value) in stored where !value.isEmpty {
+            if read(account) != value { write(account, value) }
+            if read(account) != value { allMoved = false }  // keychain write didn't stick — keep the file
+        }
+        if allMoved { try? FileManager.default.removeItem(at: file) }
     }
 }

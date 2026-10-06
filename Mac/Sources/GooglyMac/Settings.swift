@@ -41,15 +41,17 @@ final class Settings {
         set { defaults.set(newValue, forKey: "captions"); onChange?() }
     }
 
-    /// Lets him click, type, press keys and open things when you ask.
+    /// Lets him click, type, press keys and open things when you ask. Off by default: computer
+    /// control is opt-in, so out of the box he can only look and point.
     var computerControl: Bool {
-        get { defaults.object(forKey: "computerControl") as? Bool ?? true }
+        get { defaults.object(forKey: "computerControl") as? Bool ?? false }
         set { defaults.set(newValue, forKey: "computerControl"); onChange?() }
     }
 
-    /// Think with Claude (cloud) when an Anthropic key is set. Off = always the local brain.
+    /// Think with Claude (cloud) when an Anthropic key is set. Off by default: the local Ollama brain
+    /// is used unless you turn this on, so screenshots never leave the Mac without an explicit choice.
     var useClaudeBrain: Bool {
-        get { defaults.object(forKey: "useClaudeBrain") as? Bool ?? true }
+        get { defaults.object(forKey: "useClaudeBrain") as? Bool ?? false }
         set { defaults.set(newValue, forKey: "useClaudeBrain") }
     }
 

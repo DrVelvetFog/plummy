@@ -217,17 +217,34 @@ enum ComputerControl {
 
     // MARK: Apps and links
 
+    /// Apps that run arbitrary code or hold credentials. Never opened on the model's say-so, so a
+    /// prompt-injection carried in on-screen text can't reach a shell or the Keychain through open_app.
+    static let blockedApps: Set<String> = [
+        "terminal", "iterm", "iterm2", "warp", "ghostty", "alacritty", "kitty", "hyper", "wezterm",
+        "tabby", "script editor", "automator", "console", "keychain access",
+    ]
+
+    private static func isBlocked(_ name: String) -> Bool {
+        let n = name.lowercased()
+        return blockedApps.contains { n == $0 || n.contains($0) }
+    }
+
+    private static let blockedReason = "I won't open that one (it can run commands or hold passwords). Ask the user to open it themselves."
+
     /// Opens (or brings forward) an app by name, like "Safari" or "notes".
     static func openApp(_ name: String) async -> String {
         let wanted = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             .replacingOccurrences(of: ".app", with: "")
+        if isBlocked(wanted) { return blockedReason }
         if let running = NSWorkspace.shared.runningApplications.first(where: {
             $0.activationPolicy == .regular && $0.localizedName?.lowercased() == wanted
         }) {
+            if isBlocked(running.localizedName ?? "") { return blockedReason }
             running.activate()
             return "Switched to \(running.localizedName ?? name)."
         }
         guard let url = findApp(wanted) else { return "I couldn't find an app called \(name)." }
+        if isBlocked(url.deletingPathExtension().lastPathComponent) { return blockedReason }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
         do {
