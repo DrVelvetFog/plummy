@@ -302,7 +302,9 @@ final class RealtimeHost {
         }
         switch name {
         case "look_at_screen":
-            return await look(prefix: nil)
+            let shot = await look(prefix: nil)
+            Journal.shared.note(tool: "look_at_screen", label: "Looked at the screen", result: shot.image ?? shot.text, screen: true)
+            return shot
         case "point_at":
             let id = (args["target_id"] as? String ?? "").trimmingCharacters(in: .whitespaces)
             guard let snapshot else { return ("Call look_at_screen first.", nil) }
@@ -335,45 +337,56 @@ final class RealtimeHost {
             return ("Going to sleep. Say a very short goodbye.", nil)
         case "read_clipboard":
             let text = PlummyTools.readClipboard()
+            Journal.shared.note(tool: "read_clipboard", label: "Read the clipboard", result: text)
             return (text.isEmpty ? "The clipboard is empty." : "Clipboard: \(text)", nil)
         case "read_selection":
-            if let selection = PlummyTools.readSelection() { return (selection, nil) }
+            if let selection = PlummyTools.readSelection() {
+                Journal.shared.note(tool: "read_selection", label: "Read the selected text", result: selection)
+                return (selection, nil)
+            }
             return ("Nothing is selected (or I need Accessibility permission to read it).", nil)
         case "remember":
             let text = (args["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return ("What should I remember?", nil) }
             guard Memory.remember(text) else { return ("I already had that.", nil) }
             recordUndo(UndoStep(label: "forget that") { Memory.forget(text) > 0 ? "Forgotten." : "Already gone." })
+            Journal.shared.note(tool: "remember", label: "Remembered: \(text)", result: text)
             return ("Got it — I'll remember that.", nil)
         case "forget":
             let text = (args["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return ("Forget what?", nil) }
             let removed = Memory.forget(text)
+            if removed > 0 { Journal.shared.note(tool: "forget", label: "Forgot \(removed) remembered fact\(removed == 1 ? "" : "s")", result: text) }
             return (removed > 0 ? "Forgotten." : "I didn't have anything like that.", nil)
         case "undo":
-            return (await undoLast(), nil)
+            let result = await undoLast()
+            if result != "Nothing to undo." { Journal.shared.note(tool: "undo", label: "Undid the last action — \(result)", result: result) }
+            return (result, nil)
         case "write_clipboard":
             if let refusal = stateGate() { return (refusal, nil) }
             let text = args["text"] as? String ?? ""
             guard !text.isEmpty else { return ("Nothing to copy.", nil) }
             recordUndo(PlummyTools.writeClipboard(text))
+            Journal.shared.note(tool: "write_clipboard", label: "Put text on the clipboard", result: text)
             return ("Copied it to the clipboard.", nil)
         case "save_screenshot":
             if let refusal = stateGate() { return (refusal, nil) }
             let shot = await PlummyTools.saveScreenshot(name: args["name"] as? String)
-            if let undo = shot.undo { recordUndo(undo) }
+            if let undo = shot.undo { recordUndo(undo); Journal.shared.note(tool: "save_screenshot", label: shot.text, result: shot.text) }
             return (shot.text, nil)
         case "reveal_in_finder":
             if let refusal = stateGate() { return (refusal, nil) }
             let path = (args["path"] as? String ?? "").trimmingCharacters(in: .whitespaces)
             guard !path.isEmpty else { return ("Which file or folder?", nil) }
-            return (PlummyTools.revealInFinder(path), nil)
+            let result = PlummyTools.revealInFinder(path)
+            if result.hasPrefix("Showing") { Journal.shared.note(tool: "reveal_in_finder", label: result, result: result) }
+            return (result, nil)
         case "add_reminder":
             if let refusal = stateGate() { return (refusal, nil) }
             let text = (args["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return ("What should the reminder say?", nil) }
             let result = await PlummyTools.addReminder(text, due: args["due"] as? String)
-            if let undo = result.undo { recordUndo(undo) }
+            if let undo = result.undo { recordUndo(undo); Journal.shared.note(tool: "add_reminder", label: result.text, result: result.text) }
             return (result.text, nil)
         case "add_calendar_event":
             if let refusal = stateGate() { return (refusal, nil) }
@@ -381,7 +394,7 @@ final class RealtimeHost {
             guard !title.isEmpty else { return ("What's the event called?", nil) }
             guard let start = (args["start"] as? String), !start.isEmpty else { return ("When does it start?", nil) }
             let result = await PlummyTools.addCalendarEvent(title, start: start, end: args["end"] as? String)
-            if let undo = result.undo { recordUndo(undo) }
+            if let undo = result.undo { recordUndo(undo); Journal.shared.note(tool: "add_calendar_event", label: result.text, result: result.text) }
             return (result.text, nil)
         default:
             return ("Unknown tool \(name).", nil)
@@ -393,8 +406,12 @@ final class RealtimeHost {
     /// Plummy's agent loop: ask the local model, run any tools it calls, feed the results back, and repeat
     /// until it gives a plain answer (or we hit the step limit). Runs on the Mac, where Ollama lives.
     private func runBrain(_ question: String) async -> String {
-        if Settings.shared.useClaudeBrain, Keychain.get(.anthropic) != nil { return await runBrainClaude(question) }
-        return await runBrainOllama(question)
+        Journal.shared.beginTurn(question: question, recalled: Memory.facts())
+        let answer: String
+        if Settings.shared.useClaudeBrain, Keychain.get(.anthropic) != nil { answer = await runBrainClaude(question) }
+        else { answer = await runBrainOllama(question) }
+        Journal.shared.endTurn(reply: answer)
+        return answer
     }
 
     /// Local brain (Ollama). Text-only by default (works off look_at_screen's text ids); with a vision
@@ -681,7 +698,7 @@ final class RealtimeHost {
     }
 
     /// Does the actual click (fly in, click, hand the pointer back). Used directly and after a confirm.
-    private func performClick(at point: CGPoint, right: Bool, count: Int) async {
+    private func performClick(at point: CGPoint, right: Bool, count: Int, label: String) async {
         let saved = ComputerControl.mouseLocation
         await fly(to: point)
         overlay.view.clickEffect(at: point, right: right)
@@ -690,6 +707,7 @@ final class RealtimeHost {
         try? await Task.sleep(for: .milliseconds(60))
         ComputerControl.warp(to: saved)
         try? await Task.sleep(for: .milliseconds(380))
+        Journal.shared.note(tool: "click", label: label, result: label)
     }
 
     /// Shortcuts that log out, lock the screen or force-quit apps are left to the user.
@@ -706,18 +724,19 @@ final class RealtimeHost {
             }
             let right = args["right"] as? Bool ?? false
             let count = (args["double"] as? Bool ?? false) ? 2 : 1
+            let verb = right ? "Right-clicked" : count == 2 ? "Double-clicked" : "Clicked"
+            let what = target.name == "that spot" ? "there" : "\"\(target.name)\""
             // Risky, irreversible-looking buttons (Send, Delete, Buy…) wait for the user to confirm.
             if Settings.shared.confirmRisky, !right, let riskVerb = Self.riskyVerb(for: target.name) {
                 let point = target.point
                 pendingConfirm = (describe: "click \"\(target.name)\"", action: { [weak self] in
-                    await self?.performClick(at: point, right: right, count: count)
+                    await self?.performClick(at: point, right: right, count: count, label: "Clicked \(what) (confirmed)")
                 })
                 view.bubble("Confirm: click \"\(target.name)\"? ⌃⌥Y", life: 5)
                 return ("That looks like it might \(riskVerb) — I've asked the user to confirm it with ⌃⌥Y, and I won't click it until they do. Tell them what it is in one short line.", nil)
             }
-            await performClick(at: target.point, right: right, count: count)
-            let verb = right ? "Right-clicked" : count == 2 ? "Double-clicked" : "Clicked"
-            return await look(prefix: "\(verb) \(target.name == "that spot" ? "there" : "\"\(target.name)\"").")
+            await performClick(at: target.point, right: right, count: count, label: "\(verb) \(what)")
+            return await look(prefix: "\(verb) \(what).")
 
         case "type_text", "dictate":
             let text = args["text"] as? String ?? ""
@@ -732,6 +751,7 @@ final class RealtimeHost {
                 overlay.mode = .docked
             }
             await ComputerControl.type(text) { chunk in view.typedEffect(chunk) }
+            Journal.shared.note(tool: name, label: "\(name == "dictate" ? "Dictated" : "Typed"): \(String(text.prefix(60)))", result: text)
             if args["press_return"] as? Bool ?? false {
                 try? await Task.sleep(for: .milliseconds(120))
                 _ = try? ComputerControl.press("return")
@@ -755,6 +775,7 @@ final class RealtimeHost {
             } catch {
                 return (error.localizedDescription, nil)
             }
+            Journal.shared.note(tool: "press_keys", label: "Pressed \(keys)", result: keys)
             try? await Task.sleep(for: .milliseconds(380))
             return await look(prefix: "Pressed \(keys).")
 
@@ -777,6 +798,7 @@ final class RealtimeHost {
             view.bubble(arrow)
             await ComputerControl.scroll(dx: dx, dy: dy, at: point)
             ComputerControl.warp(to: saved)
+            Journal.shared.note(tool: "scroll", label: "Scrolled \(direction)", result: direction)
             try? await Task.sleep(for: .milliseconds(280))
             return await look(prefix: "Scrolled \(direction).")
 
@@ -804,6 +826,7 @@ final class RealtimeHost {
             engine.dragging = false
             try? await Task.sleep(for: .milliseconds(60))
             ComputerControl.warp(to: saved)
+            Journal.shared.note(tool: "drag", label: "Dragged \(from.name) to \(to.name)", result: "\(from.name) -> \(to.name)")
             try? await Task.sleep(for: .milliseconds(280))
             return await look(prefix: "Dragged it.")
 
@@ -813,6 +836,7 @@ final class RealtimeHost {
             if engine.isHome { overlay.mode = .docked }
             view.bubble("Opening \(name)")
             let result = await ComputerControl.openApp(name)
+            Journal.shared.note(tool: "open_app", label: "Opened \(name)", result: result)
             try? await Task.sleep(for: .milliseconds(1800))  // apps (esp. media/streaming) need time to populate
             return await look(prefix: result)
 
@@ -821,13 +845,14 @@ final class RealtimeHost {
             if engine.isHome { overlay.mode = .docked }
             let result = ComputerControl.openURL(url)
             view.bubble(result.hasPrefix("Opened ") ? String(result.dropFirst(7).dropLast()) : "Hmm")
+            if result.hasPrefix("Opened ") { Journal.shared.note(tool: "open_url", label: "Opened \(url)", result: result) }
             try? await Task.sleep(for: .milliseconds(1800))
             return await look(prefix: result)
 
         case "arrange_window":
             let place = (args["where"] as? String ?? "").trimmingCharacters(in: .whitespaces)
             let result = PlummyTools.arrangeWindow(place)
-            if let undo = result.undo { recordUndo(undo) }
+            if let undo = result.undo { recordUndo(undo); Journal.shared.note(tool: "arrange_window", label: result.text, result: result.text) }
             view.bubble("▭")
             try? await Task.sleep(for: .milliseconds(250))
             return (result.text, nil)

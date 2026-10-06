@@ -56,6 +56,13 @@ final class Settings {
         set { defaults.set(newValue, forKey: "confirmRisky"); onChange?() }
     }
 
+    /// Keep an evidence-tiered record of what she does and reads, in ~/Documents/Plummy Journal.
+    /// On by default; local only. Turn it off for no disk writes at all.
+    var journalActions: Bool {
+        get { defaults.object(forKey: "journalActions") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "journalActions"); onChange?() }
+    }
+
     /// Think with Claude (cloud) when an Anthropic key is set. Off by default: the local Ollama brain
     /// is used unless you turn this on, so screenshots never leave the Mac without an explicit choice.
     var useClaudeBrain: Bool {

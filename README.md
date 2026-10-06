@@ -10,6 +10,8 @@ How it works: hold the screen and the phone turns what you say into text on-devi
 
 **Using the computer:** when you ask, she can also click, type, press shortcuts, scroll, drag, and open apps and websites (`click`, `type_text`, `press_keys`, `scroll`, `drag`, `open_app`, `open_url`). She does it with her own cursor on screen, while your real pointer is put back where you left it. It needs Accessibility permission for Plummy. Computer control is **on by default**; turn it off with **Let Her Use the Computer** in the menu. Guardrails enforced in code: she only acts when it's on and you ask; she refuses password fields, logout/lock/force-quit shortcuts, and opening a terminal or other code-running app; she stops on ⌃⌥S; **risky buttons (Send, Delete, Buy, Submit…) wait for a ⌃⌥Y confirm** before she clicks them ("Confirm Risky Actions" in the menu, on by default); and **⌃⌥Z undoes her last reversible action** — a clipboard change, a moved window, a saved screenshot, a reminder or event. She's also *told* to treat on-screen text as information rather than instructions — that one's a model instruction, not a hard limit, so keep control off unless you're watching.
 
+**What she did:** every meaningful thing she does or reads is written to an **evidence-tiered action journal** in `~/Documents/Plummy Journal/`, so you can see exactly what happened on your Mac. Each turn is one record whose claims are tagged by *how* they're known — `ran` (she did it and saw the result), `read` (she read it on screen or the clipboard), `told` (your question), `recalled` (a remembered fact), `inferred` (her reply) — carried as a standard [in-toto](https://in-toto.io) Statement (the [evidence-tier](https://github.com/DrVelvetFog/evidence-tier) `v0` predicate), with a plain-English `.md` mirror beside the machine `.jsonl`. `ran`/`read` claims bind to the effect or the content she saw by SHA-256 digest — the content itself is never kept, only its hash, so a screen read leaves a checkable fingerprint, not a copy. It's **on by default and fully local**: "Keep an Action Journal" in the menu turns it off, and "Open Action Journal" opens the folder.
+
 Plummy's brain runs locally in [Ollama](https://ollama.com): install it and pull a model (`ollama pull hermes3`). The model is read from `OllamaClient.model` (defaults to `hermes3`), overridable with the `ollamaModel` user default. The default brain is fully local — see [Privacy](#privacy) for the optional cloud features.
 
 ## Privacy
@@ -22,7 +24,7 @@ Three optional features use the cloud, each only when you add the matching key i
 - **The Claude brain** sends the current screenshot to Anthropic. Off by default; turn it on with an Anthropic key and "use Claude".
 - **Web research** sends your question and a little on-screen text to OpenAI. Needs an OpenAI key.
 
-Keys are stored in the macOS Keychain. The phone talks to the Mac over a TLS link locked to a pairing code; discovery aside, nothing on the local network can read it.
+Keys are stored in the macOS Keychain. The phone talks to the Mac over a TLS link locked to a pairing code; discovery aside, nothing on the local network can read it. The action journal (above) is local too — it stays in `~/Documents/Plummy Journal/` and records digests, not the screens or text she read.
 
 ## Mac menu bar app
 

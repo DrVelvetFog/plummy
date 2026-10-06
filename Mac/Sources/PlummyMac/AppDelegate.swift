@@ -70,6 +70,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 exit(0)
             }
         }
+        if ProcessInfo.processInfo.environment["PLUMMY_DEMO_JOURNAL"] != nil {
+            // Drive the real Journal through one representative turn so the output can be checked
+            // against the evidence-tier `ev` verifier; write the reply (the subject) out for binding.
+            Task { @MainActor in
+                let reply = "That's the Weather app, up top."
+                Journal.shared.beginTurn(question: "what's this app?", recalled: ["Lives in Barnhart, Missouri"])
+                Journal.shared.note(tool: "look_at_screen", label: "Looked at the screen", result: "frontmost: Weather; L1 \"Barnhart\"; W3 \"72°\"", screen: true)
+                Journal.shared.note(tool: "open_app", label: "Opened Weather", result: "Opened Weather.")
+                Journal.shared.endTurn(reply: reply)
+                let out = ProcessInfo.processInfo.environment["PLUMMY_DEMO_JOURNAL_OUT"] ?? "/tmp/plummy-journal-reply.txt"
+                try? reply.write(toFile: out, atomically: true, encoding: .utf8)
+                try? await Task.sleep(for: .milliseconds(600))  // let the write queue flush
+                exit(0)
+            }
+        }
         server.onPhonesChanged = { [weak self] names in
             self?.refreshIcon()
             if names.isEmpty, self?.host.awake == true { self?.host.setAwake(false) }
@@ -117,6 +132,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func toggleConfirmRisky() { settings.confirmRisky.toggle() }
+
+    @objc private func toggleJournal() { settings.journalActions.toggle() }
 
     @objc private func toggleFollow() {
         settings.followMouse.toggle()
@@ -193,6 +210,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openNotes() {
         try? FileManager.default.createDirectory(at: MeetingNotes.root, withIntermediateDirectories: true)
         NSWorkspace.shared.open(MeetingNotes.root)
+    }
+
+    @objc private func openJournal() {
+        NSWorkspace.shared.open(Journal.root)
     }
 
     /// The pairing code shown on the Mac and typed into the phone — created once, then remembered.
@@ -375,6 +396,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         confirm.state = settings.confirmRisky ? .on : .off
         confirm.toolTip = "Pause for a ⌃⌥Y confirm before she clicks Send, Delete, Buy, Submit, etc."
         menu.addItem(confirm)
+        let journal = item("Keep an Action Journal", #selector(toggleJournal))
+        journal.state = settings.journalActions ? .on : .off
+        journal.toolTip = "Record what she does and reads, tiered ran/read/told/recalled/inferred, in ~/Documents/Plummy Journal. Local only."
+        menu.addItem(journal)
         menu.addItem(.separator())
 
         let point = item("Point Here", #selector(pointHere), key: "p")
@@ -414,6 +439,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(submenu("Phone Sits Under", phoneMenu))
 
         menu.addItem(item("Open Meeting Notes", #selector(openNotes)))
+        menu.addItem(item("Open Action Journal", #selector(openJournal)))
         menu.addItem(item("Personality…", #selector(editPersonality)))
         menu.addItem(item("What She Remembers…", #selector(showMemory)))
         menu.addItem(item("Anthropic API Key…", #selector(editAnthropicKey)))
