@@ -33,20 +33,24 @@ final class LiveVoice: NSObject, ObservableObject {
         super.init()
         synth.delegate = self
         synth.usesApplicationAudioSession = true  // play through our play-and-record session, out the speaker
-        applyMoiraIfAvailable()
+        applyPreferredVoice()
     }
 
-    /// Select Moira (enhanced, if present) once, as soon as she's installed on the device. If she isn't
-    /// downloaded yet this does nothing and tries again next launch, so it takes effect after a download.
-    /// The Voice picker can change it afterwards.
-    private func applyMoiraIfAvailable() {
-        guard UserDefaults.standard.object(forKey: "appliedMoira") == nil else { return }
+    /// The voice to select automatically, by name. Tony's pick — the one premium voice he has installed.
+    private static let preferredVoiceName = "Matilda"
+
+    /// Select the preferred voice once, as soon as it's installed on the device. If it isn't downloaded
+    /// yet this does nothing and tries again next launch, so it takes effect after a download. The Voice
+    /// picker can change it afterwards. The flag is versioned so changing the preference re-applies it.
+    private func applyPreferredVoice() {
+        let flag = "appliedVoice_\(Self.preferredVoiceName)"
+        guard UserDefaults.standard.object(forKey: flag) == nil else { return }
         let voices = AVSpeechSynthesisVoice.speechVoices()
-        let moira = voices.first { $0.name.localizedCaseInsensitiveContains("Moira") && $0.quality != .default }
-            ?? voices.first { $0.name.localizedCaseInsensitiveContains("Moira") }
-        if let moira {
-            voiceID = moira.identifier
-            UserDefaults.standard.set(true, forKey: "appliedMoira")
+        let match = voices.first { $0.name.localizedCaseInsensitiveContains(Self.preferredVoiceName) && $0.quality != .default }
+            ?? voices.first { $0.name.localizedCaseInsensitiveContains(Self.preferredVoiceName) }
+        if let match {
+            voiceID = match.identifier
+            UserDefaults.standard.set(true, forKey: flag)
         }
     }
 
