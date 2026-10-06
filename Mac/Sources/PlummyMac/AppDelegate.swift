@@ -89,6 +89,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         HotKeys.shared.register(keyCode: kVK_ANSI_T) { [weak self] in self?.overlay.talkTest() }
         // ⌃⌥S stops her using the computer right away.
         HotKeys.shared.register(keyCode: kVK_ANSI_S) { [weak self] in self?.stopActions() }
+        // ⌃⌥Z undoes the last reversible thing she did.
+        HotKeys.shared.register(keyCode: kVK_ANSI_Z) { [weak self] in self?.undoLastAction() }
+        // ⌃⌥Y confirms a risky action she's staged (Send, Delete, Buy…).
+        HotKeys.shared.register(keyCode: kVK_ANSI_Y) { [weak self] in self?.host.confirmPending() }
 
         // Plummy's brain is local (Ollama) — no OpenAI key needed, so no key prompt on launch.
     }
@@ -104,6 +108,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let screen = NSScreen.screens.first else { return }
         overlay.mode = .pinned(CGPoint(x: m.x - screen.frame.minX, y: screen.frame.maxY - m.y))
     }
+
+    @objc private func undoLastAction() {
+        Task { @MainActor in
+            let result = await self.host.undoLast()
+            self.overlay.view.bubble(result, life: 2)
+        }
+    }
+
+    @objc private func toggleConfirmRisky() { settings.confirmRisky.toggle() }
 
     @objc private func toggleFollow() {
         settings.followMouse.toggle()
@@ -357,6 +370,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(item("Allow Clicking and Typing (Accessibility)…", #selector(allowComputerControl)))
         }
         menu.addItem(item("Stop Her", #selector(stopActions), key: "s"))
+        menu.addItem(item("Undo Last Action", #selector(undoLastAction), key: "z"))
+        let confirm = item("Confirm Risky Actions", #selector(toggleConfirmRisky))
+        confirm.state = settings.confirmRisky ? .on : .off
+        confirm.toolTip = "Pause for a ⌃⌥Y confirm before she clicks Send, Delete, Buy, Submit, etc."
+        menu.addItem(confirm)
         menu.addItem(.separator())
 
         let point = item("Point Here", #selector(pointHere), key: "p")

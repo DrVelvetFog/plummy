@@ -147,6 +147,7 @@ final class RealtimeHost {
         engine.gazeOverride = nil  // her eyes follow your mouse while she listens
         if !on {
             queue = []
+            pendingConfirm = nil
             stopChoreography()
             overlay.goHome()
             overlay.view.speechTarget = nil
@@ -159,6 +160,7 @@ final class RealtimeHost {
     func stopActions() {
         stoppedUntil = CACurrentMediaTime() + 6
         queue = []
+        pendingConfirm = nil
         engine.dragging = false
         goHome()
         overlay.view.bubble("Stopped", life: 1.6)
@@ -200,6 +202,8 @@ final class RealtimeHost {
             tool("forget",
                  "Forget something you remembered. Pass words that match the fact, or \"everything\" to clear it all.",
                  ["text": ["type": "string"]], required: ["text"]),
+            tool("undo",
+                 "Undo the last thing you did that can be undone — a clipboard change, a moved window, a saved screenshot, a reminder or calendar event, or something you remembered. Use when the user says undo, undo that, or put it back."),
         ]
         guard Settings.shared.computerControl else { return list }
         let target: [String: Any] = ["type": "string", "description": "An id from look_at_screen (C, L or W). Leave out to use x and y."]
@@ -338,21 +342,27 @@ final class RealtimeHost {
         case "remember":
             let text = (args["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return ("What should I remember?", nil) }
-            return (Memory.remember(text) ? "Got it — I'll remember that." : "I already had that.", nil)
+            guard Memory.remember(text) else { return ("I already had that.", nil) }
+            recordUndo(UndoStep(label: "forget that") { Memory.forget(text) > 0 ? "Forgotten." : "Already gone." })
+            return ("Got it — I'll remember that.", nil)
         case "forget":
             let text = (args["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return ("Forget what?", nil) }
             let removed = Memory.forget(text)
             return (removed > 0 ? "Forgotten." : "I didn't have anything like that.", nil)
+        case "undo":
+            return (await undoLast(), nil)
         case "write_clipboard":
             if let refusal = stateGate() { return (refusal, nil) }
             let text = args["text"] as? String ?? ""
             guard !text.isEmpty else { return ("Nothing to copy.", nil) }
-            PlummyTools.writeClipboard(text)
+            recordUndo(PlummyTools.writeClipboard(text))
             return ("Copied it to the clipboard.", nil)
         case "save_screenshot":
             if let refusal = stateGate() { return (refusal, nil) }
-            return (await PlummyTools.saveScreenshot(name: args["name"] as? String), nil)
+            let shot = await PlummyTools.saveScreenshot(name: args["name"] as? String)
+            if let undo = shot.undo { recordUndo(undo) }
+            return (shot.text, nil)
         case "reveal_in_finder":
             if let refusal = stateGate() { return (refusal, nil) }
             let path = (args["path"] as? String ?? "").trimmingCharacters(in: .whitespaces)
@@ -362,13 +372,17 @@ final class RealtimeHost {
             if let refusal = stateGate() { return (refusal, nil) }
             let text = (args["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return ("What should the reminder say?", nil) }
-            return (await PlummyTools.addReminder(text, due: args["due"] as? String), nil)
+            let result = await PlummyTools.addReminder(text, due: args["due"] as? String)
+            if let undo = result.undo { recordUndo(undo) }
+            return (result.text, nil)
         case "add_calendar_event":
             if let refusal = stateGate() { return (refusal, nil) }
             let title = (args["title"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !title.isEmpty else { return ("What's the event called?", nil) }
             guard let start = (args["start"] as? String), !start.isEmpty else { return ("When does it start?", nil) }
-            return (await PlummyTools.addCalendarEvent(title, start: start, end: args["end"] as? String), nil)
+            let result = await PlummyTools.addCalendarEvent(title, start: start, end: args["end"] as? String)
+            if let undo = result.undo { recordUndo(undo) }
+            return (result.text, nil)
         default:
             return ("Unknown tool \(name).", nil)
         }
@@ -618,6 +632,66 @@ final class RealtimeHost {
         return nil
     }
 
+    // MARK: Undo
+
+    /// Reversible actions she's done this session, newest last. Capped so it doesn't grow forever.
+    private var undoStack: [UndoStep] = []
+
+    private func recordUndo(_ step: UndoStep) {
+        undoStack.append(step)
+        if undoStack.count > 20 { undoStack.removeFirst(undoStack.count - 20) }
+    }
+
+    /// Undoes the most recent reversible action (via the `undo` tool or the ⌃⌥Z hotkey).
+    @discardableResult
+    func undoLast() async -> String {
+        guard let step = undoStack.popLast() else { return "Nothing to undo." }
+        return await step.perform()
+    }
+
+    // MARK: Confirm-gate (for risky, irreversible clicks)
+
+    /// A click she's staged, waiting for the user to confirm with ⌃⌥Y.
+    private var pendingConfirm: (describe: String, action: () async -> Void)?
+
+    /// Risky button labels that shouldn't be clicked without an explicit confirm. Returns a verb for the
+    /// message, or nil if the label looks safe.
+    private static func riskyVerb(for label: String) -> String? {
+        let l = label.lowercased()
+        let risky: [(word: String, verb: String)] = [
+            ("send", "send something"), ("post", "post something"), ("publish", "publish something"),
+            ("delete", "delete something"), ("remove", "remove something"), ("trash", "trash something"),
+            ("discard", "discard something"), ("buy", "buy something"), ("purchase", "buy something"),
+            ("pay", "pay"), ("order", "place an order"), ("submit", "submit something"),
+            ("confirm", "confirm something"), ("unsend", "unsend something"),
+            ("log out", "log out"), ("sign out", "sign out"), ("transfer", "transfer something"),
+        ]
+        return risky.first { l.contains($0.word) }?.verb
+    }
+
+    /// The ⌃⌥Y hotkey: run the click she staged for confirmation, if any.
+    func confirmPending() {
+        guard let pending = pendingConfirm else {
+            overlay.view.bubble("Nothing to confirm", life: 1.5)
+            return
+        }
+        pendingConfirm = nil
+        overlay.view.bubble("Confirmed", life: 1.2)
+        Task { @MainActor in await pending.action() }
+    }
+
+    /// Does the actual click (fly in, click, hand the pointer back). Used directly and after a confirm.
+    private func performClick(at point: CGPoint, right: Bool, count: Int) async {
+        let saved = ComputerControl.mouseLocation
+        await fly(to: point)
+        overlay.view.clickEffect(at: point, right: right)
+        try? await Task.sleep(for: .milliseconds(90))
+        await ComputerControl.click(at: point, right: right, count: count)
+        try? await Task.sleep(for: .milliseconds(60))
+        ComputerControl.warp(to: saved)
+        try? await Task.sleep(for: .milliseconds(380))
+    }
+
     /// Shortcuts that log out, lock the screen or force-quit apps are left to the user.
     private static let refusedShortcuts: Set<String> = ["cmd+shift+q", "cmd+option+shift+q", "ctrl+cmd+q", "cmd+option+escape", "cmd+option+esc"]
 
@@ -632,14 +706,16 @@ final class RealtimeHost {
             }
             let right = args["right"] as? Bool ?? false
             let count = (args["double"] as? Bool ?? false) ? 2 : 1
-            let saved = ComputerControl.mouseLocation
-            await fly(to: target.point)
-            view.clickEffect(at: target.point, right: right)
-            try? await Task.sleep(for: .milliseconds(90))  // the click lands at the bottom of the squish
-            await ComputerControl.click(at: target.point, right: right, count: count)
-            try? await Task.sleep(for: .milliseconds(60))
-            ComputerControl.warp(to: saved)  // hand your pointer back where you left it
-            try? await Task.sleep(for: .milliseconds(380))
+            // Risky, irreversible-looking buttons (Send, Delete, Buy…) wait for the user to confirm.
+            if Settings.shared.confirmRisky, !right, let riskVerb = Self.riskyVerb(for: target.name) {
+                let point = target.point
+                pendingConfirm = (describe: "click \"\(target.name)\"", action: { [weak self] in
+                    await self?.performClick(at: point, right: right, count: count)
+                })
+                view.bubble("Confirm: click \"\(target.name)\"? ⌃⌥Y", life: 5)
+                return ("That looks like it might \(riskVerb) — I've asked the user to confirm it with ⌃⌥Y, and I won't click it until they do. Tell them what it is in one short line.", nil)
+            }
+            await performClick(at: target.point, right: right, count: count)
             let verb = right ? "Right-clicked" : count == 2 ? "Double-clicked" : "Clicked"
             return await look(prefix: "\(verb) \(target.name == "that spot" ? "there" : "\"\(target.name)\"").")
 
@@ -751,9 +827,10 @@ final class RealtimeHost {
         case "arrange_window":
             let place = (args["where"] as? String ?? "").trimmingCharacters(in: .whitespaces)
             let result = PlummyTools.arrangeWindow(place)
+            if let undo = result.undo { recordUndo(undo) }
             view.bubble("▭")
             try? await Task.sleep(for: .milliseconds(250))
-            return (result, nil)
+            return (result.text, nil)
 
         default:
             return ("Unknown action \(name).", nil)
@@ -934,7 +1011,9 @@ final class RealtimeHost {
     You can also use the computer for the user with click, type_text, press_keys, scroll, drag, open_app and \
     open_url — and dictate (type their words verbatim), read or set the clipboard, read their selection (to \
     summarise it), save a screenshot to the Desktop, show a file in Finder, arrange the front window, and add \
-    reminders and calendar events. Only do things when the user asks you to; explaining is not doing. When asked to do something, just \
+    reminders and calendar events. If the user asks to undo or put something back, call undo — it reverses \
+    the last reversible thing you did (clipboard, a moved window, a saved screenshot, a reminder or event). \
+    Only do things when the user asks you to; explaining is not doing. When asked to do something, just \
     do it silently, right away: no "okay", no "I'll set that up", no narration between steps. Work step by step: \
     act, then call look_at_screen to see what happened, then act again — and keep going until the WHOLE task is \
     done. Don't stop to ask what to do next between ordinary, reversible steps like searching, opening, scrolling, \

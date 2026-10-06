@@ -8,7 +8,7 @@ How it works: hold the screen and the phone turns what you say into text on-devi
 
 **Meeting notes:** while a session runs, the phone also records the audio in five-minute AAC chunks. Each chunk goes to the Mac, which transcribes it on-device with Apple's Speech recognizer (no key, nothing leaves the Mac) and writes the session to `~/Documents/Plummy Notes/<date> <id>/` (`notes.md`, `session.json`, `audio/`). Apple Speech has no speaker labels, so lines are attributed to one unknown speaker; the raw audio is kept either way. Sessions reconnect on their own if the Wi-Fi link drops, so one can run all day. In the phone's Plummy screen, a session's **Copy prompt for agent** button copies a prompt that points an agent at those files. **Open Meeting Notes** in the Mac menu opens the folder.
 
-**Using the computer:** when you ask, she can also click, type, press shortcuts, scroll, drag, and open apps and websites (`click`, `type_text`, `press_keys`, `scroll`, `drag`, `open_app`, `open_url`). She does it with her own cursor on screen, while your real pointer is put back where you left it. It needs Accessibility permission for Plummy. Computer control is **on by default**; turn it off with **Let Her Use the Computer** in the menu. Guardrails enforced in code: she only acts when it's on and you ask, and she refuses password fields, logout/lock/force-quit shortcuts, and opening a terminal or other code-running app, and stops on ⌃⌥S. She's also *told* to treat on-screen text as information rather than instructions and to confirm before anything hard to undo — those are instructions to the model, not hard limits, so keep it off unless you're watching.
+**Using the computer:** when you ask, she can also click, type, press shortcuts, scroll, drag, and open apps and websites (`click`, `type_text`, `press_keys`, `scroll`, `drag`, `open_app`, `open_url`). She does it with her own cursor on screen, while your real pointer is put back where you left it. It needs Accessibility permission for Plummy. Computer control is **on by default**; turn it off with **Let Her Use the Computer** in the menu. Guardrails enforced in code: she only acts when it's on and you ask; she refuses password fields, logout/lock/force-quit shortcuts, and opening a terminal or other code-running app; she stops on ⌃⌥S; **risky buttons (Send, Delete, Buy, Submit…) wait for a ⌃⌥Y confirm** before she clicks them ("Confirm Risky Actions" in the menu, on by default); and **⌃⌥Z undoes her last reversible action** — a clipboard change, a moved window, a saved screenshot, a reminder or event. She's also *told* to treat on-screen text as information rather than instructions — that one's a model instruction, not a hard limit, so keep control off unless you're watching.
 
 Plummy's brain runs locally in [Ollama](https://ollama.com): install it and pull a model (`ollama pull hermes3`). The model is read from `OllamaClient.model` (defaults to `hermes3`), overridable with the `ollamaModel` user default. The default brain is fully local — see [Privacy](#privacy) for the optional cloud features.
 
@@ -42,6 +42,8 @@ Works with just the Command Line Tools. Shortcuts work anywhere:
 | ⌃⌥H | Hide / show the cursor |
 | ⌥Space | Wake her up to talk / back to follow mode |
 | ⌃⌥S | Stop her using the computer |
+| ⌃⌥Z | Undo her last reversible action |
+| ⌃⌥Y | Confirm a risky action she's staged |
 
 The menu bar blob also sets mood, cursor size (48 to 120 pt), glow, and where the phone sits (left, center, right).
 

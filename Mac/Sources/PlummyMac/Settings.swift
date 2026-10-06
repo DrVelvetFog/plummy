@@ -49,6 +49,13 @@ final class Settings {
         set { defaults.set(newValue, forKey: "computerControl"); onChange?() }
     }
 
+    /// Make her pause for a ⌃⌥Y confirm before clicking a risky, irreversible-looking button
+    /// (Send, Delete, Buy, Submit…). On by default.
+    var confirmRisky: Bool {
+        get { defaults.object(forKey: "confirmRisky") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "confirmRisky"); onChange?() }
+    }
+
     /// Think with Claude (cloud) when an Anthropic key is set. Off by default: the local Ollama brain
     /// is used unless you turn this on, so screenshots never leave the Mac without an explicit choice.
     var useClaudeBrain: Bool {
