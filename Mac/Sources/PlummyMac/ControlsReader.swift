@@ -2,7 +2,7 @@ import AppKit
 import ApplicationServices
 
 /// Reads the clickable controls (buttons, fields, links, checkboxes…) of the frontmost app through
-/// Accessibility, so he can click things that have no visible text, like icon buttons.
+/// Accessibility, so she can click things that have no visible text, like icon buttons.
 enum ControlsReader {
     struct Control {
         let id: String

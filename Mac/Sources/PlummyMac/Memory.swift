@@ -1,7 +1,7 @@
 import Foundation
 
-/// What Plummy remembers about the user across sessions — short facts he chooses to keep. Stored
-/// locally in Application Support and only ever read back into his own prompt. Deduped and capped.
+/// What Plummy remembers about the user across sessions — short facts she chooses to keep. Stored
+/// locally in Application Support and only ever read back into her own prompt. Deduped and capped.
 enum Memory {
     private static let maxFacts = 60
     private static let maxLength = 200

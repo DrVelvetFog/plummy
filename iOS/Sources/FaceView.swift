@@ -32,7 +32,7 @@ final class FaceAnimator {
         var pupil: Double       // pupil size multiplier
         var browLift: Double    // + raises the brows (in design px)
         var browTilt: Double    // + worried/curious, - focused (radians)
-        var lean: Double        // head tilt toward where he's looking (radians)
+        var lean: Double        // head tilt toward where she's looking (radians)
         var hop: Double         // little idle hop (design px, up is +)
         var blush: Double       // 0…1
         var squint: Double      // 0…1 happy squint from below
@@ -68,7 +68,7 @@ final class FaceAnimator {
     var localMood: Mood?
     /// Loudness of the voice playing on this phone, 0…1.
     var localTalk: () -> Double = { 0 }
-    /// True while he's awake and talking with you. In follow mode his eyes stay locked on your mouse.
+    /// True while she's awake and talking with you. In follow mode her eyes stay locked on your mouse.
     var awake = false
 
     func receive(_ face: FaceState, at time: Double) {
@@ -107,7 +107,7 @@ final class FaceAnimator {
         }
         if mood == .thinking { want = CGPoint(x: 0.6 + 0.08 * sin(now * 1.3), y: -0.85) }
         if now > nextJitter {
-            // While he's listening his eyes stay on your mouse; the livelier darting is for replying.
+            // While she's listening her eyes stay on your mouse; the livelier darting is for replying.
             let amount = !awake ? 0.015 : (mood == .talking ? 0.07 : mood == .thinking ? 0.05 : 0.02)
             jitter = CGPoint(x: .random(in: -amount...amount), y: .random(in: -amount...amount))
             nextJitter = now + .random(in: 0.5...1.4)
@@ -152,7 +152,7 @@ final class FaceAnimator {
         hop.step(to: 0, dt: dt)
 
         // Blinks, sometimes doubled.
-        // Blinks, sometimes doubled. When he's drowsy they're slow and heavy.
+        // Blinks, sometimes doubled. When she's drowsy they're slow and heavy.
         let drowsy = mood == .sleepy
         if now > nextBlink {
             blinkStart = now
@@ -171,7 +171,7 @@ final class FaceAnimator {
     }
 }
 
-/// The landscape face on pure black: he fills the screen and peeks up from the bottom edge.
+/// The landscape face on pure black: she fills the screen and peeks up from the bottom edge.
 struct FaceView: View {
     let animator: FaceAnimator
 
@@ -189,7 +189,7 @@ struct FaceView: View {
         .ignoresSafeArea()
     }
 
-    /// Fills a shape with his skin (gradient plus the same soft shine), for eyelids.
+    /// Fills a shape with her skin (gradient plus the same soft shine), for eyelids.
     private static func fillSkin(_ path: Path, in ctx: inout GraphicsContext, body: CGRect) {
         ctx.fill(path, with: BlobShape.fill(in: body))
         ctx.fill(path, with: .radialGradient(Gradient(colors: [.white.opacity(0.5), .white.opacity(0)]),
@@ -204,7 +204,7 @@ struct FaceView: View {
         ctx.translateBy(x: (size.width - design.width * scale) / 2, y: size.height - design.height * scale)
         ctx.scaleBy(x: scale, y: scale)
 
-        // Whole-body motion: breathing, talking bounce, idle hops, and leaning toward what he looks at.
+        // Whole-body motion: breathing, talking bounce, idle hops, and leaning toward what she looks at.
         let bounce = -f.talk * 16 + f.breathe * 3 - f.hop
         let body = CGRect(x: 12, y: 44 + bounce, width: 820, height: 700)
         let pivot = CGPoint(x: body.midX, y: body.maxY)
@@ -226,7 +226,7 @@ struct FaceView: View {
         shine.fill(blob, with: .radialGradient(Gradient(colors: [.white.opacity(0.5), .white.opacity(0)]),
                                                center: CGPoint(x: body.minX + 246, y: body.minY + 126),
                                                startRadius: 0, endRadius: 243))
-        // A little glossy sparkle on his head.
+        // A little glossy sparkle on her head.
         shine.fill(Path(ellipseIn: CGRect(x: body.minX + 190, y: body.minY + 40, width: 46, height: 22)),
                    with: .color(.white.opacity(0.35)))
 
@@ -239,7 +239,7 @@ struct FaceView: View {
         let eyes = [CGPoint(x: body.minX + 280, y: eyeY), CGPoint(x: body.minX + 540, y: eyeY)]
         let squash = 1 - f.talk * 0.12
 
-        // Blushy cheeks, rosier when he's happy.
+        // Blushy cheeks, rosier when she's happy.
         for (i, c) in eyes.enumerated() {
             let side: CGFloat = i == 0 ? -1 : 1
             let cheek = CGRect(x: c.x - 45 + side * 62, y: c.y + 96, width: 90, height: 42)
@@ -298,12 +298,12 @@ struct FaceView: View {
                             with: .color(.white))
                 inside.fill(Path(ellipseIn: CGRect(x: pupil.x + r * 0.28, y: pupil.y + r * 0.22, width: r * 0.24, height: r * 0.24)),
                             with: .color(.white.opacity(0.85)))
-                // Happy cheeks push up from below as he smiles.
+                // Happy cheeks push up from below as she smiles.
                 if f.squint > 0.02 {
                     let lid = CGRect(x: c.x - 110, y: c.y + 95 * open - 70 * f.squint, width: 220, height: 160)
                     fillSkin(Path(ellipseIn: lid), in: &inside, body: body)
                 }
-                // Heavy, droopy lids when he's getting sleepy.
+                // Heavy, droopy lids when she's getting sleepy.
                 if f.mood == .sleepy {
                     let droop = 0.5 + 0.06 * sin(f.time * 1.3)
                     fillSkin(Path(CGRect(x: c.x - 100, y: white.minY - 10, width: 200, height: white.height * droop + 10)),
@@ -313,7 +313,7 @@ struct FaceView: View {
                         p.addLine(to: CGPoint(x: c.x + 92, y: white.minY + white.height * droop))
                     }, with: .color(navy.opacity(0.7)), style: StrokeStyle(lineWidth: 8, lineCap: .round))
                 }
-                // A soft upper lid when he's focused on pointing.
+                // A soft upper lid when she's focused on pointing.
                 if f.mood == .pointing {
                     fillSkin(Path(CGRect(x: c.x - 100, y: white.minY - 20, width: 200, height: 40)), in: &inside, body: body)
                 }
@@ -321,7 +321,7 @@ struct FaceView: View {
         }
 
         if f.mood == .resting {
-            // Little z's floating up while he naps.
+            // Little z's floating up while she naps.
             for i in 0..<3 {
                 let phase = (f.time * 0.35 + Double(i) / 3).truncatingRemainder(dividingBy: 1)
                 let size = 26 + CGFloat(i) * 8
@@ -339,7 +339,7 @@ struct FaceView: View {
             }
         }
 
-        // His little mouth-nose: opens as he talks, curls into a smile when he's happy.
+        // Her little mouth-nose: opens as she talks, curls into a smile when she's happy.
         let noseW: CGFloat = 60 - f.talk * 8
         let noseH: CGFloat = 38 + f.talk * 34
         let nose = CGRect(x: body.minX + 410 - noseW / 2, y: body.minY + 272 - f.talk * 6, width: noseW, height: noseH)

@@ -2,7 +2,7 @@ import AppKit
 import PlummyShared
 import SwiftUI
 
-/// The research report card. It shows up while he researches, then previews the first few lines.
+/// The research report card. It shows up while she researches, then previews the first few lines.
 /// Click it to expand; it stays on screen until you press the minus button.
 @MainActor
 final class ReportPanel {
@@ -54,7 +54,7 @@ final class ReportPanel {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
-        panel.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)  // above his cursor overlay
+        panel.level = NSWindow.Level(rawValue: NSWindow.Level.screenSaver.rawValue + 1)  // above her cursor overlay
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         panel.hidesOnDeactivate = false
         panel.isMovableByWindowBackground = true
@@ -70,7 +70,7 @@ final class ReportPanel {
         layout(animated: true)
     }
 
-    /// Sits in the top-right corner of the main screen, out of the way of what he points at.
+    /// Sits in the top-right corner of the main screen, out of the way of what she points at.
     private func layout(animated: Bool) {
         guard let panel, let screen = NSScreen.screens.first else { return }
         let visible = screen.visibleFrame

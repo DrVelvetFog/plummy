@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Plummy's own app screen: start or end a session, see past sessions and their transcripts, and settings.
-/// Opened from the faint button in the top-right corner of his face.
+/// Opened from the faint button in the top-right corner of her face.
 struct PlummyAppView: View {
     @ObservedObject var store: SessionStore
     @ObservedObject var live: LiveVoice
@@ -28,7 +28,7 @@ struct PlummyAppView: View {
         .onAppear { volume = live.volume }
     }
 
-    // MARK: Left: who he is, start/end, settings
+    // MARK: Left: who she is, start/end, settings
 
     private var sidebar: some View {
         ScrollView {
@@ -55,7 +55,7 @@ struct PlummyAppView: View {
                 Button {
                     let starting = live.state == .asleep
                     live.toggle()
-                    if starting { onClose() }  // back to his face when starting
+                    if starting { onClose() }  // back to her face when starting
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: live.state == .asleep ? "play.fill" : "stop.fill")
@@ -77,8 +77,8 @@ struct PlummyAppView: View {
                 .opacity(!link.connected && live.state == .asleep ? 0.5 : 1)
 
                 Text(live.state == .asleep
-                     ? "He listens the whole session. Hold his face to ask something, let go and he answers."
-                     : "Session running. Hold his face to ask; everything you say is saved here.")
+                     ? "She listens the whole session. Hold her face to ask something, let go and she answers."
+                     : "Session running. Hold her face to ask; everything you say is saved here.")
                     .font(.plexSans(12))
                     .foregroundStyle(Color(hex: Palette.inkSoft))
 
@@ -113,7 +113,7 @@ struct PlummyAppView: View {
                 Button(action: onClose) {
                     HStack(spacing: 8) {
                         Image(systemName: "face.smiling")
-                        Text("Back to his face")
+                        Text("Back to her face")
                     }
                     .font(.plexSans(15).weight(.semibold))
                     .foregroundStyle(.white)
@@ -158,7 +158,7 @@ struct PlummyAppView: View {
                     Text("No sessions yet")
                         .font(.fredoka(18))
                         .foregroundStyle(.white)
-                    Text("Start one and your transcript and his replies show up here.")
+                    Text("Start one and your transcript and her replies show up here.")
                         .font(.plexSans(13))
                         .foregroundStyle(Color(hex: Palette.inkSoft))
                 }
@@ -226,7 +226,7 @@ private struct SessionRow: View {
     }
 }
 
-/// One session as a chat: what you said in grey, your questions in blue, his replies in white bubbles.
+/// One session as a chat: what you said in grey, your questions in blue, her replies in white bubbles.
 struct SessionDetailView: View {
     @ObservedObject var store: SessionStore
     let id: UUID

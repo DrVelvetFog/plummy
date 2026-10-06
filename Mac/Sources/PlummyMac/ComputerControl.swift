@@ -2,7 +2,7 @@ import AppKit
 import ApplicationServices
 import Carbon.HIToolbox
 
-/// Low-level hands on the keyboard and mouse, used only when the user asks him to do something.
+/// Low-level hands on the keyboard and mouse, used only when the user asks her to do something.
 /// Positions are in points, top-left origin of the main display (the overlay's space, which is also
 /// Quartz's global space).
 enum ComputerControl {

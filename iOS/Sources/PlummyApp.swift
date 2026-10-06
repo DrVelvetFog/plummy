@@ -83,7 +83,7 @@ struct RootView: View {
         }
     }
 
-    /// Press and hold the screen to ask him something; let go and he answers.
+    /// Press and hold the screen to ask her something; let go and she answers.
     private var holdToAsk: some Gesture {
         DragGesture(minimumDistance: 0)
             .onChanged { _ in
@@ -162,7 +162,7 @@ struct RootView: View {
     }
 }
 
-/// Shows which mode he's in: a solid border hugging the screen's own rounded corners (blue while he listens),
+/// Shows which mode she's in: a solid border hugging the screen's own rounded corners (blue while she listens),
 /// plus a small label in the corner. Following your mouse is just a little eye icon. No glows.
 struct ModeIndicator: View {
     let state: LiveVoice.State

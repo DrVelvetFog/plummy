@@ -1,7 +1,7 @@
 import SwiftUI
 import AVFoundation
 
-/// A tiny, quiet speaker button in the top-right corner. Tap it for volume, his voice, a test hi, and which Mac to pair with.
+/// A tiny, quiet speaker button in the top-right corner. Tap it for volume, her voice, a test hi, and which Mac to pair with.
 struct SoundButton: View {
     @ObservedObject var link: MacLink
     @ObservedObject var live: LiveVoice
@@ -72,7 +72,7 @@ struct SoundButton: View {
             Slider(value: Binding(get: { volume }, set: { volume = $0; live.volume = $0; lastTouch = Date() }), in: 0...1)
                 .tint(Color(hex: Palette.berry2))
             Toggle(isOn: Binding(get: { live.speakReplies }, set: { live.speakReplies = $0; lastTouch = Date() })) {
-                Text("Speak his replies")
+                Text("Speak her replies")
                     .font(.plexSans(14))
                     .foregroundStyle(.white)
             }
@@ -119,7 +119,7 @@ struct SoundButton: View {
                 live.sayHi()
                 lastTouch = Date()
             } label: {
-                Text(live.state == .asleep ? "Wake him up" : "Say hi")
+                Text(live.state == .asleep ? "Wake her up" : "Say hi")
                     .font(.plexSans(15).weight(.semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity, minHeight: 44)
@@ -153,7 +153,7 @@ struct SoundButton: View {
                 }
             }
             if !link.connected {
-                Text("Connect to your Mac to talk to him.")
+                Text("Connect to your Mac to talk to her.")
                     .font(.plexSans(12))
                     .foregroundStyle(Color(hex: Palette.inkSoft))
             }

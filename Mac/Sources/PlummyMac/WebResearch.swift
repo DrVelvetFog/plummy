@@ -7,7 +7,7 @@ struct ResearchReport {
     var paragraphs: [String]
     var sources: [(title: String, url: URL)]
 
-    /// Plain text, for him (and the phone's saved transcript).
+    /// Plain text, for her (and the phone's saved transcript).
     var plainText: String {
         ([title] + paragraphs).joined(separator: "\n\n")
     }

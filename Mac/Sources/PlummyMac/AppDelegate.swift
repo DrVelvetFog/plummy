@@ -62,7 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         server.start()
         host.onChange = { [weak self] in self?.refreshIcon() }
 
-        // ⌥Space wakes him up or puts him back to sleep (same as double tapping him on the phone).
+        // ⌥Space wakes her up or puts her back to sleep (same as double tapping her on the phone).
         HotKeys.shared.register(keyCode: kVK_Space, modifiers: optionKey) { [weak self] in self?.toggleAwake() }
         // ⌃⌥P point here, ⌃⌥F follow mouse, ⌃⌥D stop pointing, ⌃⌥H hide, ⌃⌥T talk test.
         HotKeys.shared.register(keyCode: kVK_ANSI_P) { [weak self] in self?.pointHere() }
@@ -70,7 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         HotKeys.shared.register(keyCode: kVK_ANSI_D) { [weak self] in self?.overlay.goHome() }
         HotKeys.shared.register(keyCode: kVK_ANSI_H) { [weak self] in self?.toggleShow() }
         HotKeys.shared.register(keyCode: kVK_ANSI_T) { [weak self] in self?.overlay.talkTest() }
-        // ⌃⌥S stops him using the computer right away.
+        // ⌃⌥S stops her using the computer right away.
         HotKeys.shared.register(keyCode: kVK_ANSI_S) { [weak self] in self?.stopActions() }
 
         // Plummy's brain is local (Ollama) — no OpenAI key needed, so no key prompt on launch.
@@ -145,7 +145,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         server.broadcast(Packet(command: host.awake ? "sleep" : "wake"))
     }
 
-    /// On launch, asks for whatever he still needs (so Plummy shows up in those Settings lists),
+    /// On launch, asks for whatever she still needs (so Plummy shows up in those Settings lists),
     /// and keeps a small status file so it's easy to check what's allowed.
     private func checkPermissions() {
         guard ProcessInfo.processInfo.environment["PLUMMY_DEMO_OUT"] == nil else { return }
@@ -201,7 +201,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func toggleComputerControl() {
         settings.computerControl.toggle()
         if settings.computerControl && !ComputerControl.isTrusted { ComputerControl.askForPermission() }
-        restartIfAwake()  // his tools change with this switch
+        restartIfAwake()  // her tools change with this switch
     }
 
     @objc private func allowComputerControl() {
@@ -209,7 +209,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ComputerControl.openAccessibilitySettings()
     }
 
-    /// Wakes him again so a new personality or set of tools takes effect right away.
+    /// Wakes her again so a new personality or set of tools takes effect right away.
     private func restartIfAwake() {
         guard host.awake else { return }
         server.broadcast(Packet(command: "sleep"))
@@ -219,8 +219,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func editPersonality() {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "His Personality"
-        alert.informativeText = "Describe who he is and how he talks. How he looks at and points at your screen stays built in."
+        alert.messageText = "Her Personality"
+        alert.informativeText = "Describe who she is and how she talks. How she looks at and points at your screen stays built in."
         let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 480, height: 220))
         scroll.hasVerticalScroller = true
         scroll.borderType = .bezelBorder
@@ -304,7 +304,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let alert = NSAlert()
         alert.messageText = "What Plummy remembers"
         if facts.isEmpty {
-            alert.informativeText = "Nothing yet. He'll remember things you tell him, across sessions."
+            alert.informativeText = "Nothing yet. She'll remember things you tell her, across sessions."
             alert.addButton(withTitle: "OK")
         } else {
             alert.informativeText = facts.map { "• \($0)" }.joined(separator: "\n")
@@ -333,13 +333,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(wake)
         menu.addItem(.separator())
 
-        let control = item("Let Him Use the Computer", #selector(toggleComputerControl))
+        let control = item("Let Her Use the Computer", #selector(toggleComputerControl))
         control.state = settings.computerControl ? .on : .off
         menu.addItem(control)
         if settings.computerControl && !ComputerControl.isTrusted {
             menu.addItem(item("Allow Clicking and Typing (Accessibility)…", #selector(allowComputerControl)))
         }
-        menu.addItem(item("Stop Him", #selector(stopActions), key: "s"))
+        menu.addItem(item("Stop Her", #selector(stopActions), key: "s"))
         menu.addItem(.separator())
 
         let point = item("Point Here", #selector(pointHere), key: "p")
@@ -380,7 +380,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(item("Open Meeting Notes", #selector(openNotes)))
         menu.addItem(item("Personality…", #selector(editPersonality)))
-        menu.addItem(item("What He Remembers…", #selector(showMemory)))
+        menu.addItem(item("What She Remembers…", #selector(showMemory)))
         menu.addItem(item("Anthropic API Key…", #selector(editAnthropicKey)))
         let claude = item("Think with Claude", #selector(toggleClaudeBrain))
         claude.state = (settings.useClaudeBrain && Keychain.get(.anthropic) != nil) ? .on : .off

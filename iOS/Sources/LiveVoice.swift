@@ -4,9 +4,9 @@ import Speech
 
 /// Plummy's voice on the phone — fully local, no cloud, no key.
 ///
-/// While he's awake the mic runs so meeting notes can record. When you press and hold the screen, Apple's
+/// While she's awake the mic runs so meeting notes can record. When you press and hold the screen, Apple's
 /// on-device speech recognizer turns what you say into text; on release, that question is sent to the Mac,
-/// which does the thinking locally (Ollama) and runs the tools. He never talks out loud: his reply is a
+/// which does the thinking locally (Ollama) and runs the tools. She never talks out loud: her reply is a
 /// speech bubble on the Mac, with a little chirp here.
 final class LiveVoice: NSObject, ObservableObject {
     enum State: Equatable { case asleep, waking, listening, asking, thinking, speaking }
@@ -18,7 +18,7 @@ final class LiveVoice: NSObject, ObservableObject {
     var onStateChange: ((State) -> Void)?
     var onSessionStart: (() -> Void)?
     var onSessionEnd: (() -> Void)?
-    /// For the saved transcript: a question you asked (placeholder first, then the words), and his replies.
+    /// For the saved transcript: a question you asked (placeholder first, then the words), and her replies.
     var onUserTurn: ((_ itemID: String, _ asked: Bool) -> Void)?
     var onUserWords: ((_ itemID: String, _ text: String, _ asked: Bool) -> Void)?
     var onReply: ((String) -> Void)?
@@ -26,7 +26,7 @@ final class LiveVoice: NSObject, ObservableObject {
     /// Records the whole session's audio for meeting notes (transcribed later, on the Mac).
     let recorder = ChunkRecorder()
 
-    /// On-device text-to-speech: he reads his replies aloud. Fully local.
+    /// On-device text-to-speech: she reads her replies aloud. Fully local.
     private let synth = AVSpeechSynthesizer()
 
     override init() {
@@ -36,7 +36,7 @@ final class LiveVoice: NSObject, ObservableObject {
         applyPreferredVoice()
     }
 
-    /// The voice to select automatically, by name. Tony's pick — the one premium voice he has installed.
+    /// The voice to select automatically, by name. Tony's pick — the one premium voice she has installed.
     private static let preferredVoiceName = "Matilda"
 
     /// Select the preferred voice once, as soon as it's installed on the device. If it isn't downloaded
@@ -54,7 +54,7 @@ final class LiveVoice: NSObject, ObservableObject {
         }
     }
 
-    /// Whether he speaks his replies aloud (on) or just chirps (off).
+    /// Whether she speaks her replies aloud (on) or just chirps (off).
     var speakReplies: Bool {
         get { UserDefaults.standard.object(forKey: "speakReplies") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "speakReplies") }
@@ -66,7 +66,7 @@ final class LiveVoice: NSObject, ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: "voiceID") }
     }
 
-    /// The voice he speaks with: the user's pick if it's installed, otherwise the best available.
+    /// The voice she speaks with: the user's pick if it's installed, otherwise the best available.
     var voice: AVSpeechSynthesisVoice? {
         if let id = voiceID, let chosen = AVSpeechSynthesisVoice.speechVoices().first(where: { $0.identifier == id }) {
             return chosen
@@ -239,7 +239,7 @@ final class LiveVoice: NSObject, ObservableObject {
                     self.onReply?(reply)
                     self.setState(.speaking)
                     if self.speakReplies {
-                        self.speak(reply)  // the synth delegate returns him to listening when done
+                        self.speak(reply)  // the synth delegate returns her to listening when done
                     } else {
                         self.chirp(syllables: min(max(reply.split(separator: " ").count, 3), 5))
                     }
@@ -250,7 +250,7 @@ final class LiveVoice: NSObject, ObservableObject {
         }
     }
 
-    /// Back to listening once his chirp has finished playing.
+    /// Back to listening once her chirp has finished playing.
     private func finishIfQuiet() {
         guard pendingBuffers == 0 else { return }
         level = 0
@@ -259,7 +259,7 @@ final class LiveVoice: NSObject, ObservableObject {
 
     // MARK: Speaking (on-device TTS)
 
-    /// Reads a reply aloud. The synthesizer delegate takes him back to listening.
+    /// Reads a reply aloud. The synthesizer delegate takes her back to listening.
     private func speak(_ text: String) {
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = voice
@@ -274,7 +274,7 @@ final class LiveVoice: NSObject, ObservableObject {
     func previewVoice(_ voiceID: String?) {
         #if os(iOS)
         if state == .asleep {
-            // No session is running while he's asleep; bring one up so the preview is audible.
+            // No session is running while she's asleep; bring one up so the preview is audible.
             let session = AVAudioSession.sharedInstance()
             try? session.setCategory(.playback, mode: .default)
             try? session.setActive(true)
@@ -346,7 +346,7 @@ final class LiveVoice: NSObject, ObservableObject {
             audioReady = true
         }
         let input = engine.inputNode
-        try input.setVoiceProcessingEnabled(true)  // echo cancellation, so he doesn't hear his own chirp
+        try input.setVoiceProcessingEnabled(true)  // echo cancellation, so she doesn't hear her own chirp
         let inputFormat = input.outputFormat(forBus: 0)
         input.removeTap(onBus: 0)
         input.installTap(onBus: 0, bufferSize: 2400, format: inputFormat) { [weak self] buffer, _ in
@@ -414,7 +414,7 @@ final class LiveVoice: NSObject, ObservableObject {
     }
 }
 
-// MARK: - Text-to-speech delegate (drives the talking bounce and returns him to listening)
+// MARK: - Text-to-speech delegate (drives the talking bounce and returns her to listening)
 
 extension LiveVoice: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {

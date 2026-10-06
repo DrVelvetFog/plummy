@@ -1,7 +1,7 @@
 import Foundation
 
 /// One line in a session: the proper transcript (from the recorded audio, with speakers), the rough live
-/// transcript (until the proper one catches up), a question you asked by holding the screen, his replies
+/// transcript (until the proper one catches up), a question you asked by holding the screen, her replies
 /// and research reports.
 struct TranscriptEntry: Codable, Identifiable, Equatable {
     enum Kind: String, Codable { case heard, asked, reply, report, transcript }

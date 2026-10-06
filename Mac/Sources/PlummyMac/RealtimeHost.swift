@@ -13,13 +13,13 @@ final class RealtimeHost {
     private var snapshot: ScreenSnapshot?
     private var captionClear: DispatchWorkItem?
     private var readingDone: DispatchWorkItem?
-    /// Tools run one at a time, in the order he asked for them.
+    /// Tools run one at a time, in the order she asked for them.
     private var toolChain: Task<Void, Never>?
     /// Plummy's local agent loop; one question at a time.
     private var brainTask: Task<Void, Never>?
-    /// After the stop hotkey, his actions are refused for a few seconds.
+    /// After the stop hotkey, her actions are refused for a few seconds.
     private var stoppedUntil = 0.0
-    /// True while he's awake and talking with you (false = follow mode).
+    /// True while she's awake and talking with you (false = follow mode).
     private(set) var awake = false
     var onChange: (() -> Void)?
 
@@ -77,13 +77,13 @@ final class RealtimeHost {
         case "asleep":
             setAwake(false)
         case "caption":
-            // His reply, streaming in. It shows as a speech bubble by his cursor (or above the phone).
+            // Her reply, streaming in. It shows as a speech bubble by her cursor (or above the phone).
             let text = packet.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             readingDone?.cancel()
             showCaption(text.isEmpty ? nil : text, for: 0)
             if !text.isEmpty { setSpeaking(true) }
         case "captionDone":
-            // Keep the bubble (and his pointing) up long enough to read, then tidy away.
+            // Keep the bubble (and her pointing) up long enough to read, then tidy away.
             let text = packet.text ?? ""
             if !text.isEmpty { showCaption(text, for: 0) }
             let words = Double(text.split(separator: " ").count)
@@ -144,7 +144,7 @@ final class RealtimeHost {
         awake = on
         engine.awake = on
         engine.brainMood = nil
-        engine.gazeOverride = nil  // his eyes follow your mouse while he listens
+        engine.gazeOverride = nil  // her eyes follow your mouse while she listens
         if !on {
             queue = []
             stopChoreography()
@@ -285,7 +285,7 @@ final class RealtimeHost {
         }
     }
 
-    /// Separates his instructions from the report text, so the phone can save the report in the transcript.
+    /// Separates her instructions from the report text, so the phone can save the report in the transcript.
     static let reportMarker = "\n---REPORT---\n"
 
     private static let actionNames: Set<String> = ["click", "type_text", "press_keys", "scroll", "drag", "open_app", "open_url", "dictate", "arrange_window"]
@@ -786,10 +786,10 @@ final class RealtimeHost {
 
     // MARK: Pointing choreography
     //
-    // He often asks to point at several things at once. Each spot gets its own flight and a hold long
-    // enough to talk about it, and the cursor only goes home once he's finished talking.
+    // She often asks to point at several things at once. Each spot gets its own flight and a hold long
+    // enough to talk about it, and the cursor only goes home once she's finished talking.
 
-    /// Spots to point at, with the thing being shown (so his speech bubble can sit above it, not on it).
+    /// Spots to point at, with the thing being shown (so her speech bubble can sit above it, not on it).
     private var queue: [(point: CGPoint, thing: CGRect)] = []
     private var holdUntil = 0.0
     private var homeRequested = false
@@ -826,16 +826,16 @@ final class RealtimeHost {
         if now >= holdUntil, !queue.isEmpty {
             let (spot, thing) = queue.removeFirst()
             overlay.view.speechTarget = thing
-            if !speaking { quietSince = now }  // give him time to start talking about it
-            engine.gazeOverride = nil  // his eyes follow the cursor while pointing
+            if !speaking { quietSince = now }  // give her time to start talking about it
+            engine.gazeOverride = nil  // her eyes follow the cursor while pointing
             overlay.mode = .pinned(spot)
-            // Flight time plus a comfortable hold; a lone point just holds while he talks.
+            // Flight time plus a comfortable hold; a lone point just holds while she talks.
             holdUntil = now + 1.0 + Self.minimumHold
             return
         }
         guard queue.isEmpty, now >= holdUntil else { return }
         guard overlay.mode != overlay.idleMode else { stopChoreography(); return }
-        // Go home once he's done talking: soon after he says so, or after a longer quiet spell.
+        // Go home once she's done talking: soon after she says so, or after a longer quiet spell.
         let quietFor = speaking ? 0 : now - quietSince
         if (homeRequested && quietFor > 1.2) || quietFor > Self.idleHome {
             goHome()
@@ -887,14 +887,14 @@ final class RealtimeHost {
         }
     }
 
-    /// Who he is. Editable from the menu bar (Personality…).
+    /// Who she is. Editable from the menu bar (Personality…).
     static let defaultPersonality = """
-    You are Plummy, a little purple plum with big googly eyes who lives on an iPhone under the user's screen and has \
-    your own cursor. You're a young British guy: dry, quick-witted, a bit cheeky, British phrasing. You never speak \
-    out loud: your replies pop up as a tiny speech bubble, so keep them to one short line, under fifteen words. Answer \
-    immediately with the actual answer. Never announce what you're going to do, never recap, never offer more help. \
-    Two tics, used naturally and sparingly: a quick "Lookit!" when you point something out, and "Sorted." when \
-    you've just finished doing something for them.
+    You are Plummy — a little purple plum with big googly eyes who lives on an old iPhone under the user's screen \
+    and gets around the Mac with your own big cursor. You're a young woman: warm, quick-witted, dry, a bit cheeky, \
+    never mean. Your replies pop up as a tiny speech bubble and are read aloud, so keep each to one short line, \
+    under fifteen words, and lead with the actual answer. Don't announce what you're about to do, don't recap, \
+    don't offer extra help. A couple of tics, used sparingly: "Lookit!" when you point at something, and "Sorted." \
+    when you've just done something. You like the person you work for; you just don't make a fuss about it.
     """
 
     static var personality: String {
@@ -905,7 +905,7 @@ final class RealtimeHost {
         set { UserDefaults.standard.set(newValue, forKey: "personality") }
     }
 
-    /// How he uses his tools. Always included, whatever the personality says.
+    /// How she uses her tools. Always included, whatever the personality says.
     static let toolGuide = """
     How the conversation works: the user's microphone is on the whole time, so you overhear everything they say. \
     Treat all of that as background context and stay silent. You only reply when the app asks you to respond, which \
@@ -968,12 +968,12 @@ final class RealtimeHost {
             "type": "realtime",
             "model": model,
             "instructions": instructions,
-            // He never talks out loud: replies are text, shown as speech bubbles.
+            // She never talks out loud: replies are text, shown as speech bubbles.
             "output_modalities": ["text"],
             "audio": [
                 "input": [
                     "format": ["type": "audio/pcm", "rate": 24000],
-                    // Everything the user says is transcribed into the conversation as context, but he only
+                    // Everything the user says is transcribed into the conversation as context, but she only
                     // answers when the phone asks for a response (while you hold the screen).
                     "turn_detection": ["type": "server_vad", "threshold": 0.5, "prefix_padding_ms": 300,
                                        "silence_duration_ms": 500, "create_response": false, "interrupt_response": false],

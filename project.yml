@@ -38,7 +38,7 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         NSLocalNetworkUsageDescription: Plummy finds the Mac app on your Wi-Fi so the character can look where it points.
-        NSMicrophoneUsageDescription: Talk to Plummy. He listens while he's awake (double tap him to wake him up or put him to sleep).
+        NSMicrophoneUsageDescription: Talk to Plummy. She listens while she's awake (double tap her to wake her up or put her to sleep).
         NSSpeechRecognitionUsageDescription: Plummy turns what you say into text right on your iPhone, so your question can be sent to the Mac. Nothing is sent to Apple or the cloud.
         NSBonjourServices:
           - _plummy._tcp

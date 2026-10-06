@@ -41,9 +41,9 @@ final class Settings {
         set { defaults.set(newValue, forKey: "captions"); onChange?() }
     }
 
-    /// Lets him click, type, press keys and open things when you ask. On by default; turn it off with
-    /// "Let Him Use the Computer" in the menu. The dangerous paths stay blocked in code regardless
-    /// (terminals, password fields, logout/lock/force-quit), and ⌃⌥S stops him.
+    /// Lets her click, type, press keys and open things when you ask. On by default; turn it off with
+    /// "Let Her Use the Computer" in the menu. The dangerous paths stay blocked in code regardless
+    /// (terminals, password fields, logout/lock/force-quit), and ⌃⌥S stops her.
     var computerControl: Bool {
         get { defaults.object(forKey: "computerControl") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "computerControl"); onChange?() }

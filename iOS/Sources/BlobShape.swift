@@ -88,7 +88,7 @@ struct BlobShape: Shape {
     }
 }
 
-/// The little berry crown on top of his head (SVG path from the design, 60×40 box).
+/// The little berry crown on top of her head (SVG path from the design, 60×40 box).
 enum Crown {
     static func path(in r: CGRect) -> Path {
         let pts: [(CGFloat, CGFloat)] = [(30, 4), (36, 16), (52, 12), (40, 24), (46, 36), (30, 28), (14, 36), (20, 24), (8, 12), (24, 16)]

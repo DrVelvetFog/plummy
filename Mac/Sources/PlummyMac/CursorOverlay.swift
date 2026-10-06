@@ -140,11 +140,11 @@ final class CursorEngine {
     private var pressDepth: CGFloat = 0
 
     var talkUntil = 0.0
-    /// Set while he's listening, thinking or talking.
+    /// Set while she's listening, thinking or talking.
     var brainMood: Mood?
-    /// Where the phone's eyes should look instead of at the cursor (e.g. at you while he listens).
+    /// Where the phone's eyes should look instead of at the cursor (e.g. at you while she listens).
     var gazeOverride: CGPoint?
-    /// True while he's awake and talking with you (no dozing off then).
+    /// True while she's awake and talking with you (no dozing off then).
     var awake = false
     private var mouse = CGPoint.zero
     private var lastMouseMove = CACurrentMediaTime()
@@ -355,7 +355,7 @@ final class CursorEngine {
         } else if case .pinned = mode, mood == .listening {
             mood = .pointing
         } else if mode == .following, !awake, mood == .listening {
-            // Your mouse sat still: he gets drowsy after 5 seconds and dozes off after 15.
+            // Your mouse sat still: she gets drowsy after 5 seconds and dozes off after 15.
             let idle = now - lastMouseMove
             if idle > 15 { mood = .resting } else if idle > 5 { mood = .sleepy }
         }
@@ -467,7 +467,7 @@ final class CursorView: NSView {
     private let body = TeardropLayer()
     private var eyes: [(socket: CALayer, white: CAShapeLayer, pupil: CAShapeLayer)] = []
     private let bubbles = CALayer()
-    /// His speech bubble: a little cloud with a tail that points at his cursor (or down at the phone).
+    /// Her speech bubble: a little cloud with a tail that points at her cursor (or down at the phone).
     private let speech = CAShapeLayer()
     private let speechFill = CAGradientLayer()
     private let speechFillMask = CAShapeLayer()
@@ -485,10 +485,10 @@ final class CursorView: NSView {
     private var stringMidVelocity = CGVector.zero
     private var activeBubbles: [(layer: CALayer, born: Double, life: Double)] = []
 
-    /// The thing he's pointing at (overlay coordinates), so his bubble sits above it instead of covering it.
+    /// The thing she's pointing at (overlay coordinates), so her bubble sits above it instead of covering it.
     var speechTarget: CGRect?
 
-    /// What he's saying, shown in his speech bubble.
+    /// What she's saying, shown in her speech bubble.
     var caption: String? {
         didSet { if caption != oldValue { layoutCaption() } }
     }
@@ -790,7 +790,7 @@ final class CursorView: NSView {
         }
     }
 
-    /// A typed character floating up from the cursor, so you can see him typing.
+    /// A typed character floating up from the cursor, so you can see her typing.
     func typedEffect(_ text: String) {
         guard Settings.shared.showCursor, engine.opacity > 0.1 else { return }
         engine.press(depth: 0.035)
@@ -953,7 +953,7 @@ final class CursorView: NSView {
         }
     }
 
-    /// Follows his cursor every frame: above the thing he's pointing at (or below his cursor when there's
+    /// Follows her cursor every frame: above the thing she's pointing at (or below her cursor when there's
     /// no room up there), otherwise just above the phone.
     private func renderSpeech(now: Double) {
         guard speechSize != .zero else { return }
