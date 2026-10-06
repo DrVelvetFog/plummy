@@ -45,7 +45,7 @@ struct SoundButton: View {
     private var panel: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Chirp volume")
+                Text("Volume")
                     .font(.plexMono(12))
                     .textCase(.uppercase)
                     .foregroundStyle(Color(hex: Palette.inkSoft))
@@ -56,6 +56,12 @@ struct SoundButton: View {
             }
             Slider(value: Binding(get: { volume }, set: { volume = $0; live.volume = $0; lastTouch = Date() }), in: 0...1)
                 .tint(Color(hex: Palette.berry2))
+            Toggle(isOn: Binding(get: { live.speakReplies }, set: { live.speakReplies = $0; lastTouch = Date() })) {
+                Text("Speak his replies")
+                    .font(.plexSans(14))
+                    .foregroundStyle(.white)
+            }
+            .tint(Color(hex: Palette.berry2))
             Button {
                 live.sayHi()
                 lastTouch = Date()

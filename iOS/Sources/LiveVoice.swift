@@ -26,6 +26,22 @@ final class LiveVoice: NSObject, ObservableObject {
     /// Records the whole session's audio for meeting notes (transcribed later, on the Mac).
     let recorder = ChunkRecorder()
 
+    /// On-device text-to-speech: he reads his replies aloud in a British voice. Fully local.
+    private let synth = AVSpeechSynthesizer()
+    private lazy var britishVoice: AVSpeechSynthesisVoice? = Self.pickBritishVoice()
+
+    override init() {
+        super.init()
+        synth.delegate = self
+        synth.usesApplicationAudioSession = true  // play through our play-and-record session, out the speaker
+    }
+
+    /// Whether he speaks his replies aloud (on) or just chirps (off).
+    var speakReplies: Bool {
+        get { UserDefaults.standard.object(forKey: "speakReplies") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "speakReplies") }
+    }
+
     private var wantAwake = false
     private(set) var level: Double = 0
 
@@ -96,6 +112,7 @@ final class LiveVoice: NSObject, ObservableObject {
         let wasRunning = wantAwake
         wantAwake = false
         holding = false
+        synth.stopSpeaking(at: .immediate)
         endRecognition()
         recorder.finish()
         if wasRunning { onSessionEnd?() }
@@ -118,6 +135,7 @@ final class LiveVoice: NSObject, ObservableObject {
     func beginAsk() {
         if state == .asleep { wake(); return }
         guard wantAwake, !holding else { return }
+        synth.stopSpeaking(at: .immediate)  // don't talk over the new question
         holding = true
         startRecognition()
         setState(.asking)
@@ -188,7 +206,11 @@ final class LiveVoice: NSObject, ObservableObject {
                 if !reply.isEmpty {
                     self.onReply?(reply)
                     self.setState(.speaking)
-                    self.chirp(syllables: min(max(reply.split(separator: " ").count, 3), 5))
+                    if self.speakReplies {
+                        self.speak(reply)  // the synth delegate returns him to listening when done
+                    } else {
+                        self.chirp(syllables: min(max(reply.split(separator: " ").count, 3), 5))
+                    }
                 } else {
                     self.setState(.listening)
                 }
@@ -201,6 +223,36 @@ final class LiveVoice: NSObject, ObservableObject {
         guard pendingBuffers == 0 else { return }
         level = 0
         if wantAwake, state == .speaking || state == .thinking { setState(.listening) }
+    }
+
+    // MARK: Speaking (on-device TTS)
+
+    /// Reads a reply aloud in his British voice. The synthesizer delegate takes him back to listening.
+    private func speak(_ text: String) {
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = britishVoice
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.97
+        utterance.pitchMultiplier = 1.04  // a touch youthful
+        utterance.volume = Float(volume)
+        utterance.postUtteranceDelay = 0.05
+        synth.speak(utterance)
+    }
+
+    /// The best British voice on the device: prefer a downloaded premium/enhanced one, and Daniel (male).
+    static func pickBritishVoice() -> AVSpeechSynthesisVoice? {
+        let british = AVSpeechSynthesisVoice.speechVoices().filter { $0.language == "en-GB" }
+        func rank(_ voice: AVSpeechSynthesisVoice) -> Int {
+            var score = 0
+            switch voice.quality {
+            case .premium: score += 4
+            case .enhanced: score += 2
+            default: break
+            }
+            if voice.name.localizedCaseInsensitiveContains("Daniel")
+                || voice.identifier.localizedCaseInsensitiveContains("Daniel") { score += 1 }
+            return score
+        }
+        return british.max { rank($0) < rank($1) } ?? AVSpeechSynthesisVoice(language: "en-GB")
     }
 
     // MARK: Permissions
@@ -294,5 +346,28 @@ final class LiveVoice: NSObject, ObservableObject {
                 self.finishIfQuiet()
             }
         }
+    }
+}
+
+// MARK: - Text-to-speech delegate (drives the talking bounce and returns him to listening)
+
+extension LiveVoice: AVSpeechSynthesizerDelegate {
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async { self.level = 0.6 }
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, willSpeakRangeOfSpeechString characterRange: NSRange, utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async { self.level = Double.random(in: 0.4...0.85) }  // a little mouth-movement
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async {
+            self.level = 0
+            if self.wantAwake, self.state == .speaking { self.setState(.listening) }
+        }
+    }
+
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        DispatchQueue.main.async { self.level = 0 }
     }
 }
