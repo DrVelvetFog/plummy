@@ -26,9 +26,8 @@ final class LiveVoice: NSObject, ObservableObject {
     /// Records the whole session's audio for meeting notes (transcribed later, on the Mac).
     let recorder = ChunkRecorder()
 
-    /// On-device text-to-speech: he reads his replies aloud in a British voice. Fully local.
+    /// On-device text-to-speech: he reads his replies aloud. Fully local.
     private let synth = AVSpeechSynthesizer()
-    private lazy var britishVoice: AVSpeechSynthesisVoice? = Self.pickBritishVoice()
 
     override init() {
         super.init()
@@ -40,6 +39,20 @@ final class LiveVoice: NSObject, ObservableObject {
     var speakReplies: Bool {
         get { UserDefaults.standard.object(forKey: "speakReplies") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "speakReplies") }
+    }
+
+    /// The chosen voice's identifier (from the picker), or nil to use the best available.
+    var voiceID: String? {
+        get { UserDefaults.standard.string(forKey: "voiceID") }
+        set { UserDefaults.standard.set(newValue, forKey: "voiceID") }
+    }
+
+    /// The voice he speaks with: the user's pick if it's installed, otherwise the best available.
+    var voice: AVSpeechSynthesisVoice? {
+        if let id = voiceID, let chosen = AVSpeechSynthesisVoice.speechVoices().first(where: { $0.identifier == id }) {
+            return chosen
+        }
+        return Self.bestDefaultVoice()
     }
 
     private var wantAwake = false
@@ -227,10 +240,10 @@ final class LiveVoice: NSObject, ObservableObject {
 
     // MARK: Speaking (on-device TTS)
 
-    /// Reads a reply aloud in his British voice. The synthesizer delegate takes him back to listening.
+    /// Reads a reply aloud. The synthesizer delegate takes him back to listening.
     private func speak(_ text: String) {
         let utterance = AVSpeechUtterance(string: text)
-        utterance.voice = britishVoice
+        utterance.voice = voice
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.97
         utterance.pitchMultiplier = 1.04  // a touch youthful
         utterance.volume = Float(volume)
@@ -238,21 +251,54 @@ final class LiveVoice: NSObject, ObservableObject {
         synth.speak(utterance)
     }
 
-    /// The best British voice on the device: prefer a downloaded premium/enhanced one, and Daniel (male).
-    static func pickBritishVoice() -> AVSpeechSynthesisVoice? {
-        let british = AVSpeechSynthesisVoice.speechVoices().filter { $0.language == "en-GB" }
-        func rank(_ voice: AVSpeechSynthesisVoice) -> Int {
-            var score = 0
-            switch voice.quality {
-            case .premium: score += 4
-            case .enhanced: score += 2
-            default: break
-            }
-            if voice.name.localizedCaseInsensitiveContains("Daniel")
-                || voice.identifier.localizedCaseInsensitiveContains("Daniel") { score += 1 }
-            return score
+    /// Speaks a short sample in a given voice, so the picker can preview it.
+    func previewVoice(_ voiceID: String?) {
+        #if os(iOS)
+        if state == .asleep {
+            // No session is running while he's asleep; bring one up so the preview is audible.
+            let session = AVAudioSession.sharedInstance()
+            try? session.setCategory(.playback, mode: .default)
+            try? session.setActive(true)
         }
-        return british.max { rank($0) < rank($1) } ?? AVSpeechSynthesisVoice(language: "en-GB")
+        #endif
+        synth.stopSpeaking(at: .immediate)
+        let utterance = AVSpeechUtterance(string: "Hello — I'm Plummy. Lookit.")
+        utterance.voice = voiceID.flatMap { id in AVSpeechSynthesisVoice.speechVoices().first { $0.identifier == id } }
+            ?? Self.bestDefaultVoice()
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.97
+        utterance.pitchMultiplier = 1.04
+        utterance.volume = Float(volume)
+        synth.speak(utterance)
+    }
+
+    // MARK: Voice choices
+
+    private static func qualityRank(_ voice: AVSpeechSynthesisVoice) -> Int {
+        switch voice.quality {
+        case .premium: return 2
+        case .enhanced: return 1
+        default: return 0
+        }
+    }
+
+    /// Every English voice installed on the device, best quality first — for the picker.
+    static func englishVoices() -> [AVSpeechSynthesisVoice] {
+        AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix("en") }
+            .sorted { a, b in
+                if qualityRank(a) != qualityRank(b) { return qualityRank(a) > qualityRank(b) }
+                if a.language != b.language { return a.language < b.language }
+                return a.name < b.name
+            }
+    }
+
+    /// The best default: a quality en-GB voice, else any quality English voice, else en-GB, else anything.
+    static func bestDefaultVoice() -> AVSpeechSynthesisVoice? {
+        let english = englishVoices()
+        if let gbQuality = english.first(where: { $0.language == "en-GB" && qualityRank($0) > 0 }) { return gbQuality }
+        if let anyQuality = english.first(where: { qualityRank($0) > 0 }) { return anyQuality }
+        if let gb = english.first(where: { $0.language == "en-GB" }) { return gb }
+        return english.first ?? AVSpeechSynthesisVoice(language: "en-GB")
     }
 
     // MARK: Permissions

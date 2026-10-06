@@ -1,6 +1,7 @@
 import SwiftUI
+import AVFoundation
 
-/// A tiny, quiet speaker button in the top-right corner. Tap it for the chirp volume, a test hi, and which Mac to pair with.
+/// A tiny, quiet speaker button in the top-right corner. Tap it for volume, his voice, a test hi, and which Mac to pair with.
 struct SoundButton: View {
     @ObservedObject var link: MacLink
     @ObservedObject var live: LiveVoice
@@ -42,6 +43,20 @@ struct SoundButton: View {
         volume < 0.01 ? "speaker.slash.fill" : volume < 0.5 ? "speaker.wave.1.fill" : "speaker.wave.2.fill"
     }
 
+    private func voiceLabel(_ v: AVSpeechSynthesisVoice) -> String {
+        let quality = v.quality == .premium ? " · Premium" : v.quality == .enhanced ? " · Enhanced" : ""
+        return "\(v.name) (\(v.language))\(quality)"
+    }
+
+    private var currentVoiceName: String {
+        guard let id = live.voiceID else { return "Auto" }
+        return AVSpeechSynthesisVoice.speechVoices().first { $0.identifier == id }?.name ?? "Auto"
+    }
+
+    private var hasQualityVoice: Bool {
+        LiveVoice.englishVoices().contains { $0.quality != .default }
+    }
+
     private var panel: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -62,6 +77,44 @@ struct SoundButton: View {
                     .foregroundStyle(.white)
             }
             .tint(Color(hex: Palette.berry2))
+
+            Menu {
+                Button {
+                    live.voiceID = nil
+                    live.previewVoice(nil)
+                    lastTouch = Date()
+                } label: {
+                    HStack { Text("Best available (auto)"); if live.voiceID == nil { Image(systemName: "checkmark") } }
+                }
+                Divider()
+                ForEach(LiveVoice.englishVoices(), id: \.identifier) { v in
+                    Button {
+                        live.voiceID = v.identifier
+                        live.previewVoice(v.identifier)
+                        lastTouch = Date()
+                    } label: {
+                        HStack { Text(voiceLabel(v)); if live.voiceID == v.identifier { Image(systemName: "checkmark") } }
+                    }
+                }
+            } label: {
+                HStack {
+                    Text("Voice")
+                        .font(.plexMono(12)).textCase(.uppercase)
+                        .foregroundStyle(Color(hex: Palette.inkSoft))
+                    Spacer()
+                    Text(currentVoiceName)
+                        .font(.plexSans(13)).foregroundStyle(.white).lineLimit(1)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 10)).foregroundStyle(.white.opacity(0.5))
+                }
+                .frame(minHeight: 34)
+                .contentShape(Rectangle())
+            }
+            if !hasQualityVoice {
+                Text("Voices sound robotic? Download an Enhanced English voice in Settings → Accessibility → Spoken Content → Voices.")
+                    .font(.plexSans(11))
+                    .foregroundStyle(Color(hex: Palette.inkSoft))
+            }
             Button {
                 live.sayHi()
                 lastTouch = Date()
