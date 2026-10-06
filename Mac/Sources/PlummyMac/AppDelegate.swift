@@ -278,6 +278,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let mood = item.representedObject as? String, let m = Mood(rawValue: mood) { settings.mood = m }
     }
 
+    @objc private func showMemory() {
+        let facts = Memory.facts()
+        let alert = NSAlert()
+        alert.messageText = "What Plummy remembers"
+        if facts.isEmpty {
+            alert.informativeText = "Nothing yet. He'll remember things you tell him, across sessions."
+            alert.addButton(withTitle: "OK")
+        } else {
+            alert.informativeText = facts.map { "• \($0)" }.joined(separator: "\n")
+            alert.addButton(withTitle: "OK")
+            alert.addButton(withTitle: "Forget Everything")
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertSecondButtonReturn { Memory.forgetAll() }
+    }
+
     // MARK: Menu
 
     func menuNeedsUpdate(_ menu: NSMenu) {
@@ -343,6 +359,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         menu.addItem(item("Open Meeting Notes", #selector(openNotes)))
         menu.addItem(item("Personality…", #selector(editPersonality)))
+        menu.addItem(item("What He Remembers…", #selector(showMemory)))
         menu.addItem(item("Anthropic API Key…", #selector(editAnthropicKey)))
         let claude = item("Think with Claude", #selector(toggleClaudeBrain))
         claude.state = (settings.useClaudeBrain && Keychain.get(.anthropic) != nil) ? .on : .off

@@ -193,6 +193,13 @@ final class RealtimeHost {
             tool("read_clipboard", "Read the text currently on the clipboard."),
             tool("read_selection",
                  "Get the text the user has selected on screen (or the focused field's text), so you can summarise it or answer about it."),
+            tool("remember",
+                 "Save a short, durable fact about the user to keep for future sessions — their name, where they live, what they're working on, how they like things. Use when they tell you something worth remembering.",
+                 ["text": ["type": "string", "description": "One short fact, e.g. \"Lives in Barnhart, Missouri\" or \"Likes very short answers\"."]],
+                 required: ["text"]),
+            tool("forget",
+                 "Forget something you remembered. Pass words that match the fact, or \"everything\" to clear it all.",
+                 ["text": ["type": "string"]], required: ["text"]),
         ]
         guard Settings.shared.computerControl else { return list }
         let target: [String: Any] = ["type": "string", "description": "An id from look_at_screen (C, L or W). Leave out to use x and y."]
@@ -328,6 +335,15 @@ final class RealtimeHost {
         case "read_selection":
             if let selection = PlummyTools.readSelection() { return (selection, nil) }
             return ("Nothing is selected (or I need Accessibility permission to read it).", nil)
+        case "remember":
+            let text = (args["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return ("What should I remember?", nil) }
+            return (Memory.remember(text) ? "Got it — I'll remember that." : "I already had that.", nil)
+        case "forget":
+            let text = (args["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return ("Forget what?", nil) }
+            let removed = Memory.forget(text)
+            return (removed > 0 ? "Forgotten." : "I didn't have anything like that.", nil)
         case "write_clipboard":
             if let refusal = stateGate() { return (refusal, nil) }
             let text = args["text"] as? String ?? ""
@@ -888,6 +904,11 @@ final class RealtimeHost {
     mouse pointer, which look_at_screen tells you. Point at the most specific thing (a word or number rather than a \
     whole line). For shapes, arrows or charts with no text, use point_at_spot. If the screen may have changed, look \
     again. When the user says goodbye or asks you to sleep, reply with a very short goodbye and call go_to_sleep.
+
+    Memory: you remember things across sessions. What you already remember is listed in your instructions — \
+    use it naturally, and never say you can't recall past chats. When the user tells you something worth \
+    keeping about themselves, their work or how they like things, call remember with one short fact (don't \
+    re-save what's already listed). If they ask you to forget something, call forget.
     """
 
     static let computerGuide = """
@@ -913,7 +934,14 @@ final class RealtimeHost {
     """
 
     static var instructions: String {
-        personality + "\n\n" + toolGuide + (Settings.shared.computerControl ? "\n\n" + computerGuide : "")
+        var text = personality + "\n\n" + toolGuide
+        if Settings.shared.computerControl { text += "\n\n" + computerGuide }
+        let facts = Memory.facts()
+        if !facts.isEmpty {
+            text += "\n\nWhat you remember about the user (from past sessions):\n"
+                + facts.map { "- \($0)" }.joined(separator: "\n")
+        }
+        return text
     }
 
     static var session: [String: Any] {
