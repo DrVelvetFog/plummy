@@ -14,11 +14,13 @@ targets:
     platform: iOS
     sources:
       - path: iOS/Sources
+      - path: iOS/Assets.xcassets
       - path: Shared
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: co.visionairy.plummy.phone
         PRODUCT_NAME: Plummy
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_STYLE: Automatic

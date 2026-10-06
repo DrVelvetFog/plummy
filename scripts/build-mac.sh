@@ -14,6 +14,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$(swift build -c release --show-bin-path)/PlummyMac" "$APP/Contents/MacOS/PlummyMac"
 cp Mac/Info.plist "$APP/Contents/Info.plist"
 cp Shared/Fonts/*.ttf "$APP/Contents/Resources/"
+cp Mac/Resources/Plummy.icns "$APP/Contents/Resources/"
 
 # Sign with your Apple Development certificate when there is one, so macOS remembers the
 # Screen Recording and Microphone permissions across rebuilds. Otherwise sign ad hoc.

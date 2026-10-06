@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#AE74EE"/>
+      <stop offset="0.52" stop-color="#8138D9"/>
+      <stop offset="1" stop-color="#4F1C8C"/>
+    </linearGradient>
+    <!-- soft top-left sheen so the purple field reads as a rounded plum -->
+    <radialGradient id="sheen" cx="0.33" cy="0.28" r="0.75">
+      <stop offset="0" stop-color="#D6B8F5" stop-opacity="0.55"/>
+      <stop offset="0.5" stop-color="#D6B8F5" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#D6B8F5" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vignette" cx="0.68" cy="0.78" r="0.8">
+      <stop offset="0.55" stop-color="#2A0E54" stop-opacity="0"/>
+      <stop offset="1" stop-color="#2A0E54" stop-opacity="0.45"/>
+    </radialGradient>
+    <radialGradient id="whiteEye" cx="0.4" cy="0.34" r="0.8">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ECE4F6"/>
+    </radialGradient>
+  </defs>
+
+  <!-- plum field -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#sheen)"/>
+  <rect width="1024" height="1024" fill="url(#vignette)"/>
+
+  <!-- googly eyes -->
+  <g>
+    <!-- sclera -->
+    <circle cx="384" cy="500" r="212" fill="url(#whiteEye)" stroke="#2A0E54" stroke-width="14"/>
+    <circle cx="640" cy="500" r="212" fill="url(#whiteEye)" stroke="#2A0E54" stroke-width="14"/>
+    <!-- pupils, rolled down-and-in for the googly look -->
+    <circle cx="420" cy="556" r="92" fill="#17151F"/>
+    <circle cx="604" cy="556" r="92" fill="#17151F"/>
+    <!-- catchlights -->
+    <circle cx="398" cy="532" r="26" fill="#ffffff"/>
+    <circle cx="582" cy="532" r="26" fill="#ffffff"/>
+    <circle cx="446" cy="580" r="10" fill="#ffffff" fill-opacity="0.65"/>
+    <circle cx="630" cy="580" r="10" fill="#ffffff" fill-opacity="0.65"/>
+  </g>
+</svg>

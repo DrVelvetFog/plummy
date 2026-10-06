@@ -16,6 +16,7 @@
 		4FEF099161D5EB4E9DA770DE /* IBMPlexSans.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 36B0335F2D6B9141C5582CA2 /* IBMPlexSans.ttf */; };
 		5FC59115E8A15864B1374A61 /* PlummyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC7BF794D8DD21FD7AF0A6C /* PlummyApp.swift */; };
 		6A60B92F9706016A7A37E98F /* PairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9B18F3E06B4326C9996A0C0 /* PairingView.swift */; };
+		6C160D0A7EE817D4CF6DD6FE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EAC6349AF02BFD49640F6427 /* Assets.xcassets */; };
 		8129BACF2B3E25A1DA55C2C2 /* BlobShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAD4B7A0AB1A8E70CDD82804 /* BlobShape.swift */; };
 		8322F72D9A4FCAE4A191A4CC /* IBMPlexMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 21D311FAA3467D7C9B8DE20A /* IBMPlexMono-Medium.ttf */; };
 		8543E61CC682F089F325036D /* SoundButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = D57275BB547CD40E001F290A /* SoundButton.swift */; };
@@ -46,6 +47,7 @@
 		D57275BB547CD40E001F290A /* SoundButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundButton.swift; sourceTree = "<group>"; };
 		D798722B3B60B3B386BB499B /* Fredoka.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Fredoka.ttf; sourceTree = "<group>"; };
 		E9B18F3E06B4326C9996A0C0 /* PairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingView.swift; sourceTree = "<group>"; };
+		EAC6349AF02BFD49640F6427 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		EBA96F8C2AEEBBD1026F9A3E /* IBMPlexMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "IBMPlexMono-Regular.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -71,6 +73,14 @@
 			path = Fonts;
 			sourceTree = "<group>";
 		};
+		995736AA226B03C83F268F8E /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				EAC6349AF02BFD49640F6427 /* Assets.xcassets */,
+			);
+			path = iOS;
+			sourceTree = "<group>";
+		};
 		B2E341B0EA429D1A705E2C1D /* Sources */ = {
 			isa = PBXGroup;
 			children = (
@@ -92,6 +102,7 @@
 		D6F62882FB9768ABA09513B3 = {
 			isa = PBXGroup;
 			children = (
+				995736AA226B03C83F268F8E /* iOS */,
 				DB6B4FE6CF0EEFFAFA43B906 /* Shared */,
 				B2E341B0EA429D1A705E2C1D /* Sources */,
 				0DA83960B9A8BE43054A3E89 /* Products */,
@@ -168,6 +179,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6C160D0A7EE817D4CF6DD6FE /* Assets.xcassets in Resources */,
 				38F9E672332FA9D13EB18C7E /* Fredoka.ttf in Resources */,
 				8322F72D9A4FCAE4A191A4CC /* IBMPlexMono-Medium.ttf in Resources */,
 				1CD281E50B98A8E557C70CAA /* IBMPlexMono-Regular.ttf in Resources */,

@@ -10,6 +10,10 @@
 	<string>co.visionairy.plummy.mac</string>
 	<key>CFBundleExecutable</key>
 	<string>PlummyMac</string>
+	<key>CFBundleIconFile</key>
+	<string>Plummy</string>
+	<key>CFBundleIconName</key>
+	<string>Plummy</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
