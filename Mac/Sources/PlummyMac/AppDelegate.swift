@@ -264,6 +264,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Keychain.set(.anthropic, field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
+    @objc private func editVisionModel() {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Local Vision Model"
+        alert.informativeText = """
+        Give the offline (Ollama) brain eyes. Enter a local vision model that also does tool calls — e.g. \
+        "qwen2.5vl". Pull it first in Terminal: ollama pull qwen2.5vl. It then sees the screen like the \
+        Claude brain but stays fully local, no key. Leave empty and Save for text-only (faster, works off \
+        the screen's text). Small vision models can be hit-or-miss at longer multi-step tasks.
+        """
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
+        field.stringValue = OllamaClient.visionModel
+        field.placeholderString = "qwen2.5vl  (empty = text-only)"
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Save")
+        alert.addButton(withTitle: "Cancel")
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        UserDefaults.standard.set(field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "ollamaVisionModel")
+    }
+
     /// Flip between the local brain and Claude. With no key yet, turning it on opens the key dialog.
     @objc private func toggleClaudeBrain() {
         if Keychain.get(.anthropic) == nil {
@@ -365,6 +386,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         claude.state = (settings.useClaudeBrain && Keychain.get(.anthropic) != nil) ? .on : .off
         claude.toolTip = "On: smarter, sees the screen, uses your Anthropic key (cloud). Off: fully-local brain."
         menu.addItem(claude)
+        let vision = item("Local Vision Model…", #selector(editVisionModel))
+        vision.state = OllamaClient.visionModel.isEmpty ? .off : .on
+        vision.toolTip = "Give the offline (Ollama) brain eyes with a local vision model. Empty = text-only."
+        menu.addItem(vision)
         menu.addItem(item("Pairing Code…", #selector(showPairingCode)))
         menu.addItem(.separator())
 

@@ -9,6 +9,12 @@ enum OllamaClient {
         return saved.isEmpty ? "qwen2.5:14b" : saved
     }
 
+    /// A local vision model (e.g. "qwen2.5vl") so the brain can SEE the screen, not just its text. Empty =
+    /// text-only. Set it from the menu bar ("Local Vision Model…"); it must do both vision and tool calls.
+    static var visionModel: String {
+        UserDefaults.standard.string(forKey: "ollamaVisionModel")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
     /// Where Ollama is listening. Defaults to the local daemon.
     static var endpoint: URL {
         let host = UserDefaults.standard.string(forKey: "ollamaHost")?.trimmingCharacters(in: .whitespaces) ?? ""
@@ -32,13 +38,13 @@ enum OllamaClient {
     }
 
     /// One chat round: send the conversation plus the tool list, get back the assistant's message.
-    static func chat(messages: [[String: Any]], tools: [[String: Any]]) async throws -> Reply {
+    static func chat(messages: [[String: Any]], tools: [[String: Any]], model: String? = nil) async throws -> Reply {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 120
         request.httpBody = try JSONSerialization.data(withJSONObject: [
-            "model": model,
+            "model": model ?? Self.model,
             "messages": messages,
             "tools": tools,
             "stream": false,
