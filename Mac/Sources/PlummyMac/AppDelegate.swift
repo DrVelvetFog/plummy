@@ -269,10 +269,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let alert = NSAlert()
         alert.messageText = "Local Vision Model"
         alert.informativeText = """
-        Give the offline (Ollama) brain eyes. Enter a local vision model that also does tool calls — e.g. \
-        "qwen2.5vl". Pull it first in Terminal: ollama pull qwen2.5vl. It then sees the screen like the \
-        Claude brain but stays fully local, no key. Leave empty and Save for text-only (faster, works off \
-        the screen's text). Small vision models can be hit-or-miss at longer multi-step tasks.
+        Give the offline (Ollama) brain eyes with a local vision model that ALSO does tool calls. Heads up: \
+        right now no Ollama vision model does both — qwen2.5vl, moondream and llama3.2-vision all reject \
+        tool calls — so this is here for when one ships (or point it at your own). Until then leave it empty \
+        for the text-only local brain, and use "Think with Claude" for tasks that need to see the screen and act.
         """
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
         field.stringValue = OllamaClient.visionModel
