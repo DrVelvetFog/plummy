@@ -5,8 +5,8 @@ import Security
 
 /// Everything the Mac and the iPhone agree on: the Bonjour service name,
 /// what a "face update" looks like, and how lines of JSON travel over TCP.
-public enum GooglyService {
-    public static let type = "_googly._tcp"
+public enum PlummyService {
+    public static let type = "_plummy._tcp"
 }
 
 public enum Mood: String, Codable, CaseIterable, Sendable {
@@ -79,7 +79,7 @@ public enum Pairing {
         var bytes = [UInt8](repeating: 0, count: 12)
         guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
             // Without real entropy the code (and the PSK derived from it) would be predictable.
-            fatalError("Velvet: secure random generator unavailable; refusing to make a weak pairing code")
+            fatalError("Plummy: secure random generator unavailable; refusing to make a weak pairing code")
         }
         let chars = bytes.map { alphabet[Int($0) % alphabet.count] }
         let s = String(chars)
@@ -89,13 +89,13 @@ public enum Pairing {
     /// A 32-byte key derived from the code, ignoring case, spaces and hyphens.
     public static func psk(from code: String) -> Data {
         let norm = code.uppercased().filter { $0.isLetter || $0.isNumber }
-        return Data(SHA256.hash(data: Data(("velvet-pairing-v1" + norm).utf8)))
+        return Data(SHA256.hash(data: Data(("plummy-pairing-v1" + norm).utf8)))
     }
 }
 
 public extension NWParameters {
     /// Plain parameters for Bonjour discovery only (the browser just finds Macs; no TLS yet).
-    static var googlyBrowse: NWParameters {
+    static var plummyBrowse: NWParameters {
         let tcp = NWProtocolTCP.Options()
         tcp.noDelay = true
         let params = NWParameters(tls: nil, tcp: tcp)
@@ -105,11 +105,11 @@ public extension NWParameters {
 
     /// Authenticated + encrypted parameters for the real link: TLS with a pre-shared key from the
     /// pairing code. Only a peer with the same code completes the handshake (TLS 1.2, AES-128-GCM).
-    static func googly(psk: Data) -> NWParameters {
+    static func plummy(psk: Data) -> NWParameters {
         let tls = NWProtocolTLS.Options()
         let sec = tls.securityProtocolOptions
         let keyDD = psk.withUnsafeBytes { DispatchData(bytes: $0) }
-        let idDD = Data("velvet".utf8).withUnsafeBytes { DispatchData(bytes: $0) }
+        let idDD = Data("plummy".utf8).withUnsafeBytes { DispatchData(bytes: $0) }
         sec_protocol_options_add_pre_shared_key(sec, keyDD as __DispatchData, idDD as __DispatchData)
         if let cipher = tls_ciphersuite_t(rawValue: 0x00A8) {  // TLS_PSK_WITH_AES_128_GCM_SHA256
             sec_protocol_options_append_tls_ciphersuite(sec, cipher)
@@ -167,7 +167,7 @@ public final class LineConnection {
             if let data, !data.isEmpty {
                 self.buffer.append(data)
                 if self.buffer.count > Self.maxBufferBytes {
-                    NSLog("Googly: dropping connection; unframed data exceeded \(Self.maxBufferBytes) bytes")
+                    NSLog("Plummy: dropping connection; unframed data exceeded \(Self.maxBufferBytes) bytes")
                     self.connection.cancel()
                     return
                 }

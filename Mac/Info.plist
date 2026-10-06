@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleName</key>
-	<string>Velvet</string>
+	<string>Plummy</string>
 	<key>CFBundleDisplayName</key>
-	<string>Velvet</string>
+	<string>Plummy</string>
 	<key>CFBundleIdentifier</key>
-	<string>co.visionairy.googly.mac</string>
+	<string>co.visionairy.plummy.mac</string>
 	<key>CFBundleExecutable</key>
-	<string>GooglyMac</string>
+	<string>PlummyMac</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -21,14 +21,14 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Velvet talks to the character on your iPhone over your local network.</string>
+	<string>Plummy talks to the character on your iPhone over your local network.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Hold ⌥Space and talk to ask Velvet a question.</string>
+	<string>Hold ⌥Space and talk to ask Plummy a question.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Velvet turns what you say into text so it can answer you.</string>
+	<string>Plummy turns what you say into text so it can answer you.</string>
 	<key>NSBonjourServices</key>
 	<array>
-		<string>_googly._tcp</string>
+		<string>_plummy._tcp</string>
 	</array>
 </dict>
 </plist>

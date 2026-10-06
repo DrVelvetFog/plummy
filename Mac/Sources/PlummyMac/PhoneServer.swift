@@ -1,6 +1,6 @@
 import Foundation
 import Network
-import GooglyShared
+import PlummyShared
 
 /// Advertises the Mac on the local network and streams face updates to any phone that connects.
 final class PhoneServer {
@@ -24,8 +24,8 @@ final class PhoneServer {
 
     func start() {
         do {
-            let listener = try NWListener(using: .googly(psk: pairingPSK))
-            listener.service = NWListener.Service(name: Host.current().localizedName ?? "Mac", type: GooglyService.type)
+            let listener = try NWListener(using: .plummy(psk: pairingPSK))
+            listener.service = NWListener.Service(name: Host.current().localizedName ?? "Mac", type: PlummyService.type)
             listener.newConnectionHandler = { [weak self] connection in
                 self?.accept(connection)
             }
@@ -35,7 +35,7 @@ final class PhoneServer {
             listener.start(queue: .main)
             self.listener = listener
         } catch {
-            NSLog("Googly: could not start listener: \(error)")
+            NSLog("Plummy: could not start listener: \(error)")
             scheduleRestart()
         }
     }

@@ -2,7 +2,7 @@ import AVFoundation
 import Foundation
 import Speech
 
-/// Velvet's voice on the phone — fully local, no cloud, no key.
+/// Plummy's voice on the phone — fully local, no cloud, no key.
 ///
 /// While he's awake the mic runs so meeting notes can record. When you press and hold the screen, Apple's
 /// on-device speech recognizer turns what you say into text; on release, that question is sent to the Mac,
@@ -72,7 +72,7 @@ final class LiveVoice: NSObject, ObservableObject {
         requestPermissions { [weak self] granted in
             guard let self else { return }
             guard granted else {
-                self.onReply?("I need the microphone and speech recognition — turn them on for Velvet in Settings.")
+                self.onReply?("I need the microphone and speech recognition — turn them on for Plummy in Settings.")
                 self.wantAwake = false
                 self.setState(.asleep)
                 return
@@ -81,7 +81,7 @@ final class LiveVoice: NSObject, ObservableObject {
             do {
                 try self.startAudio()
             } catch {
-                NSLog("Velvet: couldn't start audio: \(error)")
+                NSLog("Plummy: couldn't start audio: \(error)")
                 self.wantAwake = false
                 self.setState(.asleep)
                 return

@@ -1,5 +1,5 @@
 import AppKit
-import GooglyShared
+import PlummyShared
 import SwiftUI
 
 /// The research report card. It shows up while he researches, then previews the first few lines.

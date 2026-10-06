@@ -3,11 +3,11 @@ import Speech
 
 /// Turns recorded audio into a transcript on-device (Apple Speech — no key, nothing leaves the Mac)
 /// and keeps each session's meeting notes as plain files any agent can read:
-/// ~/Documents/Velvet Notes/<date> <id>/.
+/// ~/Documents/Plummy Notes/<date> <id>/.
 enum MeetingNotes {
     static var root: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Velvet Notes", isDirectory: true)
+            .appendingPathComponent("Plummy Notes", isDirectory: true)
     }
 
     struct Segment {
@@ -39,14 +39,14 @@ enum MeetingNotes {
         let url = root.appendingPathComponent("README.md")
         guard !FileManager.default.fileExists(atPath: url.path) else { return }
         let text = """
-        # Velvet Notes
+        # Plummy Notes
 
-        Meeting notes recorded by the Velvet app (the little plum on the iPhone). One folder per listening \
+        Meeting notes recorded by the Plummy app (the little plum on the iPhone). One folder per listening \
         session, named by start time.
 
         In each session folder:
-        - `notes.md`: the full transcript with timestamps and speaker labels, plus your questions to Velvet, \
-        Velvet's replies and any research reports, in time order. Start here.
+        - `notes.md`: the full transcript with timestamps and speaker labels, plus your questions to Plummy, \
+        Plummy's replies and any research reports, in time order. Start here.
         - `session.json`: the same data, structured.
         - `audio/`: the raw recording, as five-minute AAC chunks.
 
@@ -83,7 +83,7 @@ enum MeetingNotes {
         case notAuthorized, unavailable
         var errorDescription: String? {
             switch self {
-            case .notAuthorized: return "Speech Recognition is off for Velvet (System Settings, Privacy & Security, Speech Recognition)."
+            case .notAuthorized: return "Speech Recognition is off for Plummy (System Settings, Privacy & Security, Speech Recognition)."
             case .unavailable: return "the on-device speech recognizer isn't available (its language model may still be downloading)."
             }
         }
@@ -157,7 +157,7 @@ enum MeetingNotes {
         let clock = DateFormatter()
         clock.dateFormat = "h:mm:ss a"
 
-        var out = ["# Velvet session: \(day.string(from: started))", ""]
+        var out = ["# Plummy session: \(day.string(from: started))", ""]
         if let ended {
             let minutes = Int(ended.timeIntervalSince(started) / 60)
             out.append("Ended \(clock.string(from: ended)) (\(minutes / 60)h \(minutes % 60)m).")
@@ -166,7 +166,7 @@ enum MeetingNotes {
         }
         if pending > 0 { out.append("\(pending) recording chunk(s) still being transcribed; this file updates when they're done.") }
         let asked = entries.filter { $0["kind"] as? String == "asked" }.count
-        if asked > 0 { out.append("You asked Velvet \(asked) question(s); they're marked inline below.") }
+        if asked > 0 { out.append("You asked Plummy \(asked) question(s); they're marked inline below.") }
         out += ["", "## Transcript", ""]
 
         for entry in entries {
@@ -179,9 +179,9 @@ enum MeetingNotes {
             case "heard":
                 out.append("[\(time)] (live) \(text)")
             case "asked":
-                out.append("> **[\(time)] You asked Velvet:** \(text)")
+                out.append("> **[\(time)] You asked Plummy:** \(text)")
             case "reply":
-                out.append("> **Velvet:** \(text)")
+                out.append("> **Plummy:** \(text)")
             case "report":
                 let quoted = text.components(separatedBy: "\n").map { "> " + $0 }.joined(separator: "\n")
                 out.append("> **Research report:**\n" + quoted)

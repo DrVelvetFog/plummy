@@ -1,0 +1,392 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		09AF065B43BFA451B84BECF9 /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 407A9AE560B05FBF9299CE47 /* SessionStore.swift */; };
+		0F27A6F5B743514BD536F167 /* MacLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A781A36CABCDADE9F450D9 /* MacLink.swift */; };
+		1CD281E50B98A8E557C70CAA /* IBMPlexMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EBA96F8C2AEEBBD1026F9A3E /* IBMPlexMono-Regular.ttf */; };
+		23569D8E7A58272389775797 /* OFL-IBMPlex.txt in Resources */ = {isa = PBXBuildFile; fileRef = 9CFBC0A7A7F1861E19A34D32 /* OFL-IBMPlex.txt */; };
+		38F9E672332FA9D13EB18C7E /* Fredoka.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D798722B3B60B3B386BB499B /* Fredoka.ttf */; };
+		46B675F84C35C437A26AEA0F /* Palette.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A7E06D8C3F63DAFDF0B58C /* Palette.swift */; };
+		4FEF099161D5EB4E9DA770DE /* IBMPlexSans.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 36B0335F2D6B9141C5582CA2 /* IBMPlexSans.ttf */; };
+		5FC59115E8A15864B1374A61 /* PlummyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBC7BF794D8DD21FD7AF0A6C /* PlummyApp.swift */; };
+		6A60B92F9706016A7A37E98F /* PairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9B18F3E06B4326C9996A0C0 /* PairingView.swift */; };
+		8129BACF2B3E25A1DA55C2C2 /* BlobShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAD4B7A0AB1A8E70CDD82804 /* BlobShape.swift */; };
+		8322F72D9A4FCAE4A191A4CC /* IBMPlexMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 21D311FAA3467D7C9B8DE20A /* IBMPlexMono-Medium.ttf */; };
+		8543E61CC682F089F325036D /* SoundButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = D57275BB547CD40E001F290A /* SoundButton.swift */; };
+		8B0FE4D6BBDB3EF29D0A4C79 /* LiveVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87A5F1E3147207CCA68CF5D8 /* LiveVoice.swift */; };
+		98165AD0E458778C6A4578AD /* OFL-Fredoka.txt in Resources */ = {isa = PBXBuildFile; fileRef = 12F025BC5494D4E379819F6D /* OFL-Fredoka.txt */; };
+		9C47F065085D528E6E5ADD7F /* FaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EC7CE085FC98B82F3C9FEE8 /* FaceView.swift */; };
+		A8B86955345C5A66FB4169B8 /* ChunkRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B8D1E912EC8FC5AD7EBBCB2 /* ChunkRecorder.swift */; };
+		B6E3096E9FEB01617C871B7F /* PlummyAppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D19396292D8E718528F059F /* PlummyAppView.swift */; };
+		CDCE5A73C4A8FD7695886377 /* PlummyLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A8B88BD306DDAD4DEE7DA43 /* PlummyLink.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		12F025BC5494D4E379819F6D /* OFL-Fredoka.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-Fredoka.txt"; sourceTree = "<group>"; };
+		21D311FAA3467D7C9B8DE20A /* IBMPlexMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "IBMPlexMono-Medium.ttf"; sourceTree = "<group>"; };
+		35A781A36CABCDADE9F450D9 /* MacLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MacLink.swift; sourceTree = "<group>"; };
+		36B0335F2D6B9141C5582CA2 /* IBMPlexSans.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = IBMPlexSans.ttf; sourceTree = "<group>"; };
+		407A9AE560B05FBF9299CE47 /* SessionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionStore.swift; sourceTree = "<group>"; };
+		6A8B88BD306DDAD4DEE7DA43 /* PlummyLink.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlummyLink.swift; sourceTree = "<group>"; };
+		6B8D1E912EC8FC5AD7EBBCB2 /* ChunkRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChunkRecorder.swift; sourceTree = "<group>"; };
+		87A5F1E3147207CCA68CF5D8 /* LiveVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveVoice.swift; sourceTree = "<group>"; };
+		8D19396292D8E718528F059F /* PlummyAppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlummyAppView.swift; sourceTree = "<group>"; };
+		8EC7CE085FC98B82F3C9FEE8 /* FaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceView.swift; sourceTree = "<group>"; };
+		942A0A0D4CDCDB3B6A696A7C /* Plummy.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Plummy.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9CFBC0A7A7F1861E19A34D32 /* OFL-IBMPlex.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-IBMPlex.txt"; sourceTree = "<group>"; };
+		BBC7BF794D8DD21FD7AF0A6C /* PlummyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlummyApp.swift; sourceTree = "<group>"; };
+		C0A7E06D8C3F63DAFDF0B58C /* Palette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Palette.swift; sourceTree = "<group>"; };
+		CAD4B7A0AB1A8E70CDD82804 /* BlobShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobShape.swift; sourceTree = "<group>"; };
+		D57275BB547CD40E001F290A /* SoundButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundButton.swift; sourceTree = "<group>"; };
+		D798722B3B60B3B386BB499B /* Fredoka.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Fredoka.ttf; sourceTree = "<group>"; };
+		E9B18F3E06B4326C9996A0C0 /* PairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingView.swift; sourceTree = "<group>"; };
+		EBA96F8C2AEEBBD1026F9A3E /* IBMPlexMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "IBMPlexMono-Regular.ttf"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0DA83960B9A8BE43054A3E89 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				942A0A0D4CDCDB3B6A696A7C /* Plummy.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		6DAD8E3ECE59F7F4F9AA8EBB /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				D798722B3B60B3B386BB499B /* Fredoka.ttf */,
+				21D311FAA3467D7C9B8DE20A /* IBMPlexMono-Medium.ttf */,
+				EBA96F8C2AEEBBD1026F9A3E /* IBMPlexMono-Regular.ttf */,
+				36B0335F2D6B9141C5582CA2 /* IBMPlexSans.ttf */,
+				12F025BC5494D4E379819F6D /* OFL-Fredoka.txt */,
+				9CFBC0A7A7F1861E19A34D32 /* OFL-IBMPlex.txt */,
+			);
+			path = Fonts;
+			sourceTree = "<group>";
+		};
+		B2E341B0EA429D1A705E2C1D /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				CAD4B7A0AB1A8E70CDD82804 /* BlobShape.swift */,
+				6B8D1E912EC8FC5AD7EBBCB2 /* ChunkRecorder.swift */,
+				8EC7CE085FC98B82F3C9FEE8 /* FaceView.swift */,
+				87A5F1E3147207CCA68CF5D8 /* LiveVoice.swift */,
+				35A781A36CABCDADE9F450D9 /* MacLink.swift */,
+				E9B18F3E06B4326C9996A0C0 /* PairingView.swift */,
+				BBC7BF794D8DD21FD7AF0A6C /* PlummyApp.swift */,
+				8D19396292D8E718528F059F /* PlummyAppView.swift */,
+				407A9AE560B05FBF9299CE47 /* SessionStore.swift */,
+				D57275BB547CD40E001F290A /* SoundButton.swift */,
+			);
+			name = Sources;
+			path = iOS/Sources;
+			sourceTree = "<group>";
+		};
+		D6F62882FB9768ABA09513B3 = {
+			isa = PBXGroup;
+			children = (
+				DB6B4FE6CF0EEFFAFA43B906 /* Shared */,
+				B2E341B0EA429D1A705E2C1D /* Sources */,
+				0DA83960B9A8BE43054A3E89 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DB6B4FE6CF0EEFFAFA43B906 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				C0A7E06D8C3F63DAFDF0B58C /* Palette.swift */,
+				6A8B88BD306DDAD4DEE7DA43 /* PlummyLink.swift */,
+				6DAD8E3ECE59F7F4F9AA8EBB /* Fonts */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		33797AC6177B0233DBAF7F05 /* Plummy */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4C593310505D8BF5186B3B1A /* Build configuration list for PBXNativeTarget "Plummy" */;
+			buildPhases = (
+				CD42359FB29AD04CC6F8D246 /* Sources */,
+				C74D4368BF078AEAE18D396C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Plummy;
+			packageProductDependencies = (
+			);
+			productName = Plummy;
+			productReference = 942A0A0D4CDCDB3B6A696A7C /* Plummy.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C5E5D339FB3ADDB07CEB2224 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					33797AC6177B0233DBAF7F05 = {
+						DevelopmentTeam = 3Q7ZZFFVFP;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 90316A8FCA685B851DACCADC /* Build configuration list for PBXProject "Plummy" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = D6F62882FB9768ABA09513B3;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 0DA83960B9A8BE43054A3E89 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				33797AC6177B0233DBAF7F05 /* Plummy */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C74D4368BF078AEAE18D396C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				38F9E672332FA9D13EB18C7E /* Fredoka.ttf in Resources */,
+				8322F72D9A4FCAE4A191A4CC /* IBMPlexMono-Medium.ttf in Resources */,
+				1CD281E50B98A8E557C70CAA /* IBMPlexMono-Regular.ttf in Resources */,
+				4FEF099161D5EB4E9DA770DE /* IBMPlexSans.ttf in Resources */,
+				98165AD0E458778C6A4578AD /* OFL-Fredoka.txt in Resources */,
+				23569D8E7A58272389775797 /* OFL-IBMPlex.txt in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		CD42359FB29AD04CC6F8D246 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8129BACF2B3E25A1DA55C2C2 /* BlobShape.swift in Sources */,
+				A8B86955345C5A66FB4169B8 /* ChunkRecorder.swift in Sources */,
+				9C47F065085D528E6E5ADD7F /* FaceView.swift in Sources */,
+				8B0FE4D6BBDB3EF29D0A4C79 /* LiveVoice.swift in Sources */,
+				0F27A6F5B743514BD536F167 /* MacLink.swift in Sources */,
+				6A60B92F9706016A7A37E98F /* PairingView.swift in Sources */,
+				46B675F84C35C437A26AEA0F /* Palette.swift in Sources */,
+				5FC59115E8A15864B1374A61 /* PlummyApp.swift in Sources */,
+				B6E3096E9FEB01617C871B7F /* PlummyAppView.swift in Sources */,
+				CDCE5A73C4A8FD7695886377 /* PlummyLink.swift in Sources */,
+				09AF065B43BFA451B84BECF9 /* SessionStore.swift in Sources */,
+				8543E61CC682F089F325036D /* SoundButton.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1DDAB9DB83563452E1E60F45 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		1FECA253E590FD7333FF40D8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3Q7ZZFFVFP;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = iOS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.visionairy.plummy.phone;
+				PRODUCT_NAME = Plummy;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		53A02BBB9995CAFAC2A818B6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		C0A1784941F14E799EEF660D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 3Q7ZZFFVFP;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = iOS/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = co.visionairy.plummy.phone;
+				PRODUCT_NAME = Plummy;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4C593310505D8BF5186B3B1A /* Build configuration list for PBXNativeTarget "Plummy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1FECA253E590FD7333FF40D8 /* Debug */,
+				C0A1784941F14E799EEF660D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		90316A8FCA685B851DACCADC /* Build configuration list for PBXProject "Plummy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DDAB9DB83563452E1E60F45 /* Debug */,
+				53A02BBB9995CAFAC2A818B6 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = C5E5D339FB3ADDB07CEB2224 /* Project object */;
+}

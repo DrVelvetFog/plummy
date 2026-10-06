@@ -17,7 +17,7 @@ final class ChunkRecorder {
     /// Called on the main queue each time a chunk is finished.
     var onChunk: ((Chunk) -> Void)?
 
-    private let queue = DispatchQueue(label: "googly.recorder")
+    private let queue = DispatchQueue(label: "plummy.recorder")
     private var sessionID: UUID?
     private var file: AVAudioFile?
     private var fileFormat: AVAudioFormat?
@@ -136,7 +136,7 @@ enum NotesSync {
         }
     }
 
-    static func send(_ sessions: [VelvetSession], store: SessionStore, link: MacLink) {
+    static func send(_ sessions: [PlummySession], store: SessionStore, link: MacLink) {
         guard link.connected else { return }
         for session in sessions {
             let entries: [[String: Any]] = session.displayEntries.map { entry in

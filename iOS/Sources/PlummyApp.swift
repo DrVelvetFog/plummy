@@ -4,7 +4,7 @@ import UIKit
 #endif
 
 @main
-struct GooglyApp: App {
+struct PlummyApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -34,7 +34,7 @@ struct RootView: View {
 
             SoundButton(link: link, live: live)
 
-            // Velvet's app: sessions, transcripts and settings.
+            // Plummy's app: sessions, transcripts and settings.
             Button { showApp = true } label: {
                 Image(systemName: "square.grid.2x2.fill")
                     .font(.system(size: 14, weight: .semibold))
@@ -43,7 +43,7 @@ struct RootView: View {
                     .background(Circle().fill(Color.white.opacity(0.06)).frame(width: 34, height: 34))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Open Velvet")
+            .accessibilityLabel("Open Plummy")
             .padding(.top, 10)
             .padding(.trailing, 62)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
@@ -59,7 +59,7 @@ struct RootView: View {
         .ignoresSafeArea()
         .phoneChrome()
         .fullScreenCover(isPresented: $showApp) {
-            VelvetAppView(store: store, live: live, link: link) { showApp = false }
+            PlummyAppView(store: store, live: live, link: link) { showApp = false }
         }
         .onAppear {
             link.onFace = { [animator] face in animator.receive(face, at: Date().timeIntervalSinceReferenceDate) }

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Velvet — elderberry / plum colors, as 0xRRGGBB.
+/// Plummy — elderberry / plum colors, as 0xRRGGBB.
 public enum Palette {
     public static let berry1: UInt32 = 0xD6B8F5  // light orchid
     public static let berry2: UInt32 = 0xAE74EE

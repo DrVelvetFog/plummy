@@ -1,8 +1,8 @@
-# Velvet — security review, 2026-10-06
+# Plummy — security review, 2026-10-06
 
 Scope: the Mac↔phone link, the computer-control path, the brain/tool loop, and the
 cloud/local data flows. Read against the README's framing of a "fully-local, private"
-assistant. Source read: `PhoneServer`, `GooglyLink`, `ComputerControl`, `RealtimeHost`,
+assistant. Source read: `PhoneServer`, `PlummyLink`, `ComputerControl`, `RealtimeHost`,
 `Settings`, `WebResearch`, `Keychain`.
 
 ## Verdict
@@ -52,7 +52,7 @@ Fix (defense in depth, all local):
 
 ### 3. API keys and the pairing PSK sit in cleartext on disk — MEDIUM
 `Keychain` is a misnomer: keys (`openai`, `anthropic`, `elevenlabs`) and the pairing PSK
-are stored as **plaintext JSON** at `~/Library/Application Support/Googly/keys.json`
+are stored as **plaintext JSON** at `~/Library/Application Support/Plummy/keys.json`
 (`0600`, dir `0700`). That stops other local users, but not any process running as the
 user, Time Machine, or a cloud-synced Application Support folder. The real macOS Keychain
 encrypts at rest and gates access.
@@ -62,7 +62,7 @@ type and document the tradeoff. The pairing PSK especially shouldn't share a cle
 file with cloud keys.
 
 ### 4. Aggressive defaults — MEDIUM
-`computerControl` defaults to **true**: out of the box Velvet can click/type/open apps.
+`computerControl` defaults to **true**: out of the box Plummy can click/type/open apps.
 Combined with #2, the default posture is "full control on." Fix: default `computerControl`
 to **false** (opt-in), matching the README's "can be switched off" framing from the other
 direction.

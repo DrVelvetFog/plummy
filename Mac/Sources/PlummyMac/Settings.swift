@@ -1,5 +1,5 @@
 import Foundation
-import GooglyShared
+import PlummyShared
 
 /// User choices from the menu bar, kept between launches.
 final class Settings {

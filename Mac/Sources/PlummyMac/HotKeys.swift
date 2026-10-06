@@ -22,7 +22,7 @@ final class HotKeys {
         var ref: EventHotKeyRef?
         let hotKeyID = EventHotKeyID(signature: OSType(0x474F4F47), id: id)  // 'GOOG'
         let status = RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers), hotKeyID, GetApplicationEventTarget(), 0, &ref)
-        if status == noErr, let ref { refs.append(ref) } else { NSLog("Googly: hotkey \(keyCode) not registered (\(status))") }
+        if status == noErr, let ref { refs.append(ref) } else { NSLog("Plummy: hotkey \(keyCode) not registered (\(status))") }
     }
 
     fileprivate func fire(_ id: UInt32, pressed: Bool) {

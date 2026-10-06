@@ -3,17 +3,17 @@
 import PackageDescription
 
 let package = Package(
-    name: "Googly",
+    name: "Plummy",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "GooglyMac", targets: ["GooglyMac"]),
+        .executable(name: "PlummyMac", targets: ["PlummyMac"]),
     ],
     targets: [
-        .target(name: "GooglyShared", path: "Shared", exclude: ["Fonts"]),
+        .target(name: "PlummyShared", path: "Shared", exclude: ["Fonts"]),
         .executableTarget(
-            name: "GooglyMac",
-            dependencies: ["GooglyShared"],
-            path: "Mac/Sources/GooglyMac"
+            name: "PlummyMac",
+            dependencies: ["PlummyShared"],
+            path: "Mac/Sources/PlummyMac"
         ),
     ]
 )

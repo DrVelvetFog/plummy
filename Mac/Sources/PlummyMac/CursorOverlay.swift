@@ -1,6 +1,6 @@
 import AppKit
 import QuartzCore
-import GooglyShared
+import PlummyShared
 
 /// Where the big character cursor wants to be.
 enum CursorMode: Equatable {

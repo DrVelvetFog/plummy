@@ -1,6 +1,6 @@
 import Foundation
 
-/// Velvet's optional cloud brain: Anthropic's Messages API (Claude). Used when an Anthropic key is set
+/// Plummy's optional cloud brain: Anthropic's Messages API (Claude). Used when an Anthropic key is set
 /// (menu → Anthropic API Key…). Claude is much better at multi-step tool use and, unlike the local
 /// models, can SEE the screenshots look_at_screen returns. Screen text and screenshots are sent to
 /// Anthropic and it bills the key, so it's strictly opt-in. Clear the key to go back to the local brain.

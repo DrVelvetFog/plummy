@@ -1,6 +1,6 @@
-name: GooglyEyes
+name: Plummy
 options:
-  bundleIdPrefix: co.visionairy.googly
+  bundleIdPrefix: co.visionairy.plummy
   deploymentTarget:
     iOS: "17.0"
 settings:
@@ -9,7 +9,7 @@ settings:
     MARKETING_VERSION: "0.1"
     CURRENT_PROJECT_VERSION: "1"
 targets:
-  GooglyEyes:
+  Plummy:
     type: application
     platform: iOS
     sources:
@@ -17,8 +17,8 @@ targets:
       - path: Shared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: co.visionairy.googly.phone
-        PRODUCT_NAME: Velvet
+        PRODUCT_BUNDLE_IDENTIFIER: co.visionairy.plummy.phone
+        PRODUCT_NAME: Plummy
         TARGETED_DEVICE_FAMILY: "1"
         GENERATE_INFOPLIST_FILE: YES
         CODE_SIGN_STYLE: Automatic
@@ -27,7 +27,7 @@ targets:
     info:
       path: iOS/Info.plist
       properties:
-        CFBundleDisplayName: Velvet
+        CFBundleDisplayName: Plummy
         UILaunchScreen: {}
         UIRequiresFullScreen: true
         UIStatusBarHidden: true
@@ -35,11 +35,11 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        NSLocalNetworkUsageDescription: Velvet finds the Mac app on your Wi-Fi so the character can look where it points.
-        NSMicrophoneUsageDescription: Talk to Velvet. He listens while he's awake (double tap him to wake him up or put him to sleep).
-        NSSpeechRecognitionUsageDescription: Velvet turns what you say into text right on your iPhone, so your question can be sent to the Mac. Nothing is sent to Apple or the cloud.
+        NSLocalNetworkUsageDescription: Plummy finds the Mac app on your Wi-Fi so the character can look where it points.
+        NSMicrophoneUsageDescription: Talk to Plummy. He listens while he's awake (double tap him to wake him up or put him to sleep).
+        NSSpeechRecognitionUsageDescription: Plummy turns what you say into text right on your iPhone, so your question can be sent to the Mac. Nothing is sent to Apple or the cloud.
         NSBonjourServices:
-          - _googly._tcp
+          - _plummy._tcp
         UIAppFonts:
           - Fredoka.ttf
           - IBMPlexSans.ttf

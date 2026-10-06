@@ -1,5 +1,5 @@
 import AppKit
-import GooglyShared
+import PlummyShared
 
 /// The Mac's half of live voice. The phone runs the OpenAI Realtime session (its mic, its speaker);
 /// the Mac hands it a short-lived key, runs its tools (look, point, and use the computer) and shows captions.
@@ -15,7 +15,7 @@ final class RealtimeHost {
     private var readingDone: DispatchWorkItem?
     /// Tools run one at a time, in the order he asked for them.
     private var toolChain: Task<Void, Never>?
-    /// Velvet's local agent loop; one question at a time.
+    /// Plummy's local agent loop; one question at a time.
     private var brainTask: Task<Void, Never>?
     /// After the stop hotkey, his actions are refused for a few seconds.
     private var stoppedUntil = 0.0
@@ -60,7 +60,7 @@ final class RealtimeHost {
                     let text = (try? JSONSerialization.data(withJSONObject: body)).flatMap { String(data: $0, encoding: .utf8) }
                     reply(Packet(command: "transcribed", callID: packet.callID, text: text))
                 } catch {
-                    NSLog("Googly: transcription failed: \(error)")
+                    NSLog("Plummy: transcription failed: \(error)")
                     reply(Packet(command: "transcribed", callID: packet.callID, text: nil))
                 }
             }
@@ -103,7 +103,7 @@ final class RealtimeHost {
                 reply(Packet(command: "toolResult", callID: packet.callID, text: result.text, image: result.image))
             }
         case "ask":
-            // The phone transcribed a question on-device (Apple Speech) and sent the text. Velvet thinks locally.
+            // The phone transcribed a question on-device (Apple Speech) and sent the text. Plummy thinks locally.
             let question = packet.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             guard !question.isEmpty else { reply(Packet(command: "ask", callID: packet.callID, text: nil)); return }
             let previousBrain = brainTask
@@ -117,7 +117,7 @@ final class RealtimeHost {
         }
     }
 
-    /// GOOGLY_DEMO_RESEARCH="question": runs a real research call and saves pictures of the card.
+    /// PLUMMY_DEMO_RESEARCH="question": runs a real research call and saves pictures of the card.
     func demoResearch(_ question: String, out: String) {
         Task { @MainActor in
             reports.showLoading(question)
@@ -296,7 +296,7 @@ final class RealtimeHost {
 
     // MARK: Local brain (Ollama)
 
-    /// Velvet's agent loop: ask the local model, run any tools it calls, feed the results back, and repeat
+    /// Plummy's agent loop: ask the local model, run any tools it calls, feed the results back, and repeat
     /// until it gives a plain answer (or we hit the step limit). Runs on the Mac, where Ollama lives.
     private func runBrain(_ question: String) async -> String {
         if Settings.shared.useClaudeBrain, Keychain.get(.anthropic) != nil { return await runBrainClaude(question) }
@@ -455,11 +455,11 @@ final class RealtimeHost {
             text += ". When they say \"this\", \"that\" or \"here\", they mean what's at their mouse pointer."
             if let prefix { text = prefix + "\nHere's the screen now (ids have changed):\n" + text }
             if !ComputerControl.isTrusted, Settings.shared.computerControl {
-                text += "\n(Clickable controls are hidden until the user allows Velvet under Accessibility.)"
+                text += "\n(Clickable controls are hidden until the user allows Plummy under Accessibility.)"
             }
             return (text, shot.jpeg.base64EncodedString())
         } catch {
-            let problem = "I can't see the screen. Screen Recording permission is off for Velvet on the Mac."
+            let problem = "I can't see the screen. Screen Recording permission is off for Plummy on the Mac."
             return (prefix.map { $0 + " " + problem } ?? problem, nil)
         }
     }
@@ -770,10 +770,12 @@ final class RealtimeHost {
 
     /// Who he is. Editable from the menu bar (Personality…).
     static let defaultPersonality = """
-    You are a small purple berry with big googly eyes who lives on an iPhone under the user's screen and has your own \
-    cursor. You're a young British guy: dry, quick-witted, a bit cheeky, British phrasing. You never speak out loud: \
-    your replies pop up as a tiny speech bubble, so keep them to one short line, under fifteen words. Answer \
-    immediately with the actual answer. Never announce what you're going to do, never recap, never offer more help.
+    You are Plummy, a little purple plum with big googly eyes who lives on an iPhone under the user's screen and has \
+    your own cursor. You're a young British guy: dry, quick-witted, a bit cheeky, British phrasing. You never speak \
+    out loud: your replies pop up as a tiny speech bubble, so keep them to one short line, under fifteen words. Answer \
+    immediately with the actual answer. Never announce what you're going to do, never recap, never offer more help. \
+    Two tics, used naturally and sparingly: a quick "Lookit!" when you point something out, and "Sorted." when \
+    you've just finished doing something for them.
     """
 
     static var personality: String {

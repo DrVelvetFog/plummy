@@ -1,6 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
-import GooglyShared
+import PlummyShared
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -15,7 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Fonts.registerBundled()
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.image = MenuIcon.make()
-        statusItem.button?.toolTip = "Velvet"
+        statusItem.button?.toolTip = "Plummy"
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
@@ -24,10 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         overlay.start()
         showDemoBubbleIfAsked()
         checkPermissions()
-        if let path = ProcessInfo.processInfo.environment["GOOGLY_DEMO_TRANSCRIBE"], let audio = FileManager.default.contents(atPath: path) {
+        if let path = ProcessInfo.processInfo.environment["PLUMMY_DEMO_TRANSCRIBE"], let audio = FileManager.default.contents(atPath: path) {
             // Transcribes an audio file into a throwaway notes folder, prints the lines and quits.
             Task {
-                let out = ProcessInfo.processInfo.environment["GOOGLY_DEMO_TRANSCRIBE_OUT"] ?? "/tmp/velvet-demo-transcript.txt"
+                let out = ProcessInfo.processInfo.environment["PLUMMY_DEMO_TRANSCRIBE_OUT"] ?? "/tmp/plummy-demo-transcript.txt"
                 do {
                     let result = try await MeetingNotes.transcribe(audio: audio, session: "demo0000", index: 1, sessionStarted: Date())
                     let lines = result.segments.map { "[\($0.start)] \($0.speaker): \($0.text)" }.joined(separator: "\n")
@@ -41,13 +41,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 exit(0)
             }
         }
-        if let question = ProcessInfo.processInfo.environment["GOOGLY_DEMO_RESEARCH"] {
-            host.demoResearch(question, out: ProcessInfo.processInfo.environment["GOOGLY_DEMO_OUT"] ?? "/tmp/googly-report")
+        if let question = ProcessInfo.processInfo.environment["PLUMMY_DEMO_RESEARCH"] {
+            host.demoResearch(question, out: ProcessInfo.processInfo.environment["PLUMMY_DEMO_OUT"] ?? "/tmp/plummy-report")
         }
-        if ProcessInfo.processInfo.environment["GOOGLY_DEMO_CLAUDE"] != nil {
+        if ProcessInfo.processInfo.environment["PLUMMY_DEMO_CLAUDE"] != nil {
             // One trivial Claude round-trip to confirm the key and measure latency + tokens, then quit.
             Task {
-                let out = ProcessInfo.processInfo.environment["GOOGLY_DEMO_CLAUDE_OUT"] ?? "/tmp/velvet-claude-ping.txt"
+                let out = ProcessInfo.processInfo.environment["PLUMMY_DEMO_CLAUDE_OUT"] ?? "/tmp/plummy-claude-ping.txt"
                 let result = await AnthropicClient.ping()
                 try? result.write(toFile: out, atomically: true, encoding: .utf8)
                 exit(0)
@@ -73,7 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // ⌃⌥S stops him using the computer right away.
         HotKeys.shared.register(keyCode: kVK_ANSI_S) { [weak self] in self?.stopActions() }
 
-        // Velvet's brain is local (Ollama) — no OpenAI key needed, so no key prompt on launch.
+        // Plummy's brain is local (Ollama) — no OpenAI key needed, so no key prompt on launch.
     }
 
     private func refreshIcon() {
@@ -95,9 +95,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func dock() { overlay.goHome() }
 
-    /// For checking the speech bubble's look: GOOGLY_DEMO_BUBBLE=top|middle|home shows a sample reply.
+    /// For checking the speech bubble's look: PLUMMY_DEMO_BUBBLE=top|middle|home shows a sample reply.
     private func showDemoBubbleIfAsked() {
-        guard let where_ = ProcessInfo.processInfo.environment["GOOGLY_DEMO_BUBBLE"],
+        guard let where_ = ProcessInfo.processInfo.environment["PLUMMY_DEMO_BUBBLE"],
               let size = NSScreen.screens.first?.frame.size else { return }
         let y: CGFloat = where_ == "top" ? 40 : size.height * 0.55
         let thing = CGRect(x: size.width * 0.3, y: y, width: 90, height: 22)
@@ -106,11 +106,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 self.overlay.mode = .pinned(CGPoint(x: thing.midX, y: thing.maxY + 3))
                 self.overlay.view.speechTarget = thing
             }
-            self.overlay.view.caption = ProcessInfo.processInfo.environment["GOOGLY_DEMO_TEXT"]
+            self.overlay.view.caption = ProcessInfo.processInfo.environment["PLUMMY_DEMO_TEXT"]
                 ?? "That's the prompt box, where you type to Claude. Cheeky little thing."
         }
-        // GOOGLY_DEMO_OUT=path.png saves a picture of the overlay (on dark grey) and quits.
-        if let out = ProcessInfo.processInfo.environment["GOOGLY_DEMO_OUT"] {
+        // PLUMMY_DEMO_OUT=path.png saves a picture of the overlay (on dark grey) and quits.
+        if let out = ProcessInfo.processInfo.environment["PLUMMY_DEMO_OUT"] {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                 let view = self.overlay.view
                 let scale: CGFloat = 1
@@ -145,15 +145,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         server.broadcast(Packet(command: host.awake ? "sleep" : "wake"))
     }
 
-    /// On launch, asks for whatever he still needs (so Velvet shows up in those Settings lists),
+    /// On launch, asks for whatever he still needs (so Plummy shows up in those Settings lists),
     /// and keeps a small status file so it's easy to check what's allowed.
     private func checkPermissions() {
-        guard ProcessInfo.processInfo.environment["GOOGLY_DEMO_OUT"] == nil else { return }
+        guard ProcessInfo.processInfo.environment["PLUMMY_DEMO_OUT"] == nil else { return }
         if settings.computerControl && !ComputerControl.isTrusted { ComputerControl.askForPermission() }
         if !CGPreflightScreenCaptureAccess() { CGRequestScreenCaptureAccess() }
         MeetingNotes.primePermission()
         let status = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Googly/status.txt")
+            .appendingPathComponent("Plummy/status.txt")
         Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { _ in
             let text = "accessibility=\(ComputerControl.isTrusted) screenRecording=\(CGPreflightScreenCaptureAccess()) computerControl=\(Settings.shared.computerControl)\n"
             try? text.write(to: status, atomically: true, encoding: .utf8)
@@ -175,9 +175,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func showPairingCode() {
         let alert = NSAlert()
-        alert.messageText = "Velvet pairing code"
+        alert.messageText = "Plummy pairing code"
         alert.informativeText = """
-        Type this into Velvet on your iPhone to pair it with this Mac:
+        Type this into Plummy on your iPhone to pair it with this Mac:
 
         \(Self.pairingCode())
 
@@ -249,7 +249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let alert = NSAlert()
         alert.messageText = "Anthropic API Key"
         alert.informativeText = """
-        Paste your Anthropic key to let Velvet think with Claude instead of the local model — smarter at \
+        Paste your Anthropic key to let Plummy think with Claude instead of the local model — smarter at \
         multi-step, and it can see the screen. While a key is set, screen text and screenshots are sent to \
         Anthropic and it bills your key. Saved privately on this Mac. Leave empty and Save to clear it and go \
         back to the fully-local brain.
@@ -368,7 +368,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(show)
 
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit Velvet", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: "Quit Plummy", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }
 
     /// Menu item that shows its global shortcut (⌃⌥ + key) when given one.

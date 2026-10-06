@@ -3,15 +3,15 @@ import Security
 
 /// API keys and the pairing secret live in the macOS Keychain — encrypted at rest and gated by the
 /// system — not in a file. The first time it runs, it migrates any keys from the old plaintext file
-/// (`~/Library/Application Support/Googly/keys.json`) into the Keychain and then removes that file,
-/// but only once every key has been read back from the Keychain, so a key is never lost.
+/// (`~/Library/Application Support/Googly/keys.json`, from before the rename) into the Keychain and
+/// then removes that file, but only once every key has been read back, so a key is never lost.
 enum Keychain {
     enum Key: String, CaseIterable {
         case anthropic, elevenlabs, openai, pairing
     }
 
     /// The Keychain "service" these items are filed under (visible in Keychain Access).
-    private static let service = "Velvet"
+    private static let service = "Plummy"
 
     static func get(_ key: Key) -> String? {
         migrateIfNeeded()
@@ -67,7 +67,7 @@ enum Keychain {
         if migrated { return }
         migrated = true
         let file = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Googly", isDirectory: true)
+            .appendingPathComponent("Googly", isDirectory: true)  // the pre-rename location keys actually live in
             .appendingPathComponent("keys.json")
         guard let data = try? Data(contentsOf: file),
               let stored = try? JSONSerialization.jsonObject(with: data) as? [String: String] else { return }

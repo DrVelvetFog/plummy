@@ -9,7 +9,7 @@ import UIKit
 final class MacLink: ObservableObject {
     @Published private(set) var connected = false
     @Published private(set) var macName: String?
-    /// Every Mac running Velvet on this Wi-Fi, by its Bonjour name.
+    /// Every Mac running Plummy on this Wi-Fi, by its Bonjour name.
     @Published private(set) var macs: [String] = []
     /// The Mac the phone is linked to (or trying to link to).
     @Published private(set) var currentMac: String?
@@ -33,7 +33,7 @@ final class MacLink: ObservableObject {
 
     func start() {
         guard browser == nil else { return }
-        let browser = NWBrowser(for: .bonjour(type: GooglyService.type, domain: nil), using: .googlyBrowse)
+        let browser = NWBrowser(for: .bonjour(type: PlummyService.type, domain: nil), using: .plummyBrowse)
         browser.browseResultsChangedHandler = { [weak self] results, _ in
             guard let self else { return }
             self.macs = results.compactMap(Self.serviceName).sorted()
@@ -105,7 +105,7 @@ final class MacLink: ObservableObject {
               let results = browser?.browseResults, !results.isEmpty else { return }
         let result = results.first { Self.serviceName($0) == preferredMac } ?? results.first!
         currentMac = Self.serviceName(result)
-        let link = LineConnection(NWConnection(to: result.endpoint, using: .googly(psk: Pairing.psk(from: pairingCode))))
+        let link = LineConnection(NWConnection(to: result.endpoint, using: .plummy(psk: Pairing.psk(from: pairingCode))))
         link.onState = { [weak self, weak link] state in
             guard let self, let link, link === self.link else { return }
             switch state {

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Velvet's brain, running locally. Talks to Ollama's chat API (http://localhost:11434) instead of OpenAI,
+/// Plummy's brain, running locally. Talks to Ollama's chat API (http://localhost:11434) instead of OpenAI,
 /// so there's no key, no cloud, and no per-minute cost. The Mac hosts it; the phone only sends the question.
 enum OllamaClient {
     /// The model that thinks and calls tools. Override with `defaults write` or the menu bar later.

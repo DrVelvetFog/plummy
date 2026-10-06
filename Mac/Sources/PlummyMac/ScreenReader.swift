@@ -73,7 +73,7 @@ enum ScreenReaderError: LocalizedError {
     var errorDescription: String? { "I couldn't find the main display to look at." }
 }
 
-/// Captures the main display (without Googly's own cursor and captions) and reads every word with its exact box.
+/// Captures the main display (without Plummy's own cursor and captions) and reads every word with its exact box.
 enum ScreenReader {
     static func snapshot() async throws -> ScreenSnapshot {
         let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)

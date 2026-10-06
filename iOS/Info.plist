@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Velvet</string>
+	<string>Plummy</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -22,14 +22,14 @@
 	<string>1</string>
 	<key>NSBonjourServices</key>
 	<array>
-		<string>_googly._tcp</string>
+		<string>_plummy._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Velvet finds the Mac app on your Wi-Fi so the character can look where it points.</string>
+	<string>Plummy finds the Mac app on your Wi-Fi so the character can look where it points.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Talk to Velvet. He listens while he's awake (double tap him to wake him up or put him to sleep).</string>
+	<string>Talk to Plummy. He listens while he's awake (double tap him to wake him up or put him to sleep).</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Velvet turns what you say into text right on your iPhone, so your question can be sent to the Mac. Nothing is sent to Apple or the cloud.</string>
+	<string>Plummy turns what you say into text right on your iPhone, so your question can be sent to the Mac. Nothing is sent to Apple or the cloud.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>Fredoka.ttf</string>
