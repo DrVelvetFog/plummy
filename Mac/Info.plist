@@ -30,6 +30,10 @@
 	<string>Hold ⌥Space and talk to ask Plummy a question.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Plummy turns what you say into text so it can answer you.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>Plummy adds reminders to your Reminders when you ask him to.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Plummy adds events to your Calendar when you ask him to.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_plummy._tcp</string>

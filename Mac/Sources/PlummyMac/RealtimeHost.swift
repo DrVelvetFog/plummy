@@ -190,6 +190,9 @@ final class RealtimeHost {
             tool("stop_pointing", "Bring your cursor back home when you're done pointing."),
             tool("go_to_sleep",
                  "Go back to quietly following the user's mouse with your eyes. Use when the user says bye, thanks that's all, or asks you to sleep."),
+            tool("read_clipboard", "Read the text currently on the clipboard."),
+            tool("read_selection",
+                 "Get the text the user has selected on screen (or the focused field's text), so you can summarise it or answer about it."),
         ]
         guard Settings.shared.computerControl else { return list }
         let target: [String: Any] = ["type": "string", "description": "An id from look_at_screen (C, L or W). Leave out to use x and y."]
@@ -222,6 +225,36 @@ final class RealtimeHost {
             tool("open_url",
                  "Open a website in the default browser, like \"excalidraw.com\" or a full link. Returns the screen afterwards.",
                  ["url": ["type": "string"]], required: ["url"]),
+            tool("dictate",
+                 "Type the user's words into the focused field exactly as they said them — verbatim, no changes or paraphrasing. Use when they say type, dictate or write this down. Click the field first if needed.",
+                 ["text": ["type": "string"],
+                  "press_return": ["type": "boolean", "description": "Press Return after typing."]],
+                 required: ["text"]),
+            tool("write_clipboard",
+                 "Put text on the clipboard so the user can paste it.",
+                 ["text": ["type": "string"]], required: ["text"]),
+            tool("save_screenshot",
+                 "Save a screenshot of the screen to the user's Desktop.",
+                 ["name": ["type": "string", "description": "Optional file name."]]),
+            tool("reveal_in_finder",
+                 "Show a file or folder in Finder.",
+                 ["path": ["type": "string", "description": "A file or folder path, like ~/Documents/notes.md."]],
+                 required: ["path"]),
+            tool("arrange_window",
+                 "Move or resize the frontmost window.",
+                 ["where": ["type": "string", "enum": PlummyTools.windowPlaces]],
+                 required: ["where"]),
+            tool("add_reminder",
+                 "Add a reminder to the user's Reminders.",
+                 ["text": ["type": "string"],
+                  "due": ["type": "string", "description": "Optional due date-time, ISO like 2026-10-07T15:00 or 2026-10-07 15:00."]],
+                 required: ["text"]),
+            tool("add_calendar_event",
+                 "Add an event to the user's Calendar.",
+                 ["title": ["type": "string"],
+                  "start": ["type": "string", "description": "Start date-time, ISO like 2026-10-07T15:00."],
+                  "end": ["type": "string", "description": "Optional end date-time; defaults to one hour after the start."]],
+                 required: ["title", "start"]),
         ]
         return list
     }
@@ -248,7 +281,7 @@ final class RealtimeHost {
     /// Separates his instructions from the report text, so the phone can save the report in the transcript.
     static let reportMarker = "\n---REPORT---\n"
 
-    private static let actionNames: Set<String> = ["click", "type_text", "press_keys", "scroll", "drag", "open_app", "open_url"]
+    private static let actionNames: Set<String> = ["click", "type_text", "press_keys", "scroll", "drag", "open_app", "open_url", "dictate", "arrange_window"]
 
     private func runTool(_ name: String, arguments: String) async -> (text: String, image: String?) {
         let args = (try? JSONSerialization.jsonObject(with: Data(arguments.utf8)) as? [String: Any]) ?? [:]
@@ -289,6 +322,37 @@ final class RealtimeHost {
         case "go_to_sleep":
             // The phone closes the session after this call; the Mac just tidies up.
             return ("Going to sleep. Say a very short goodbye.", nil)
+        case "read_clipboard":
+            let text = PlummyTools.readClipboard()
+            return (text.isEmpty ? "The clipboard is empty." : "Clipboard: \(text)", nil)
+        case "read_selection":
+            if let selection = PlummyTools.readSelection() { return (selection, nil) }
+            return ("Nothing is selected (or I need Accessibility permission to read it).", nil)
+        case "write_clipboard":
+            if let refusal = stateGate() { return (refusal, nil) }
+            let text = args["text"] as? String ?? ""
+            guard !text.isEmpty else { return ("Nothing to copy.", nil) }
+            PlummyTools.writeClipboard(text)
+            return ("Copied it to the clipboard.", nil)
+        case "save_screenshot":
+            if let refusal = stateGate() { return (refusal, nil) }
+            return (await PlummyTools.saveScreenshot(name: args["name"] as? String), nil)
+        case "reveal_in_finder":
+            if let refusal = stateGate() { return (refusal, nil) }
+            let path = (args["path"] as? String ?? "").trimmingCharacters(in: .whitespaces)
+            guard !path.isEmpty else { return ("Which file or folder?", nil) }
+            return (PlummyTools.revealInFinder(path), nil)
+        case "add_reminder":
+            if let refusal = stateGate() { return (refusal, nil) }
+            let text = (args["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { return ("What should the reminder say?", nil) }
+            return (await PlummyTools.addReminder(text, due: args["due"] as? String), nil)
+        case "add_calendar_event":
+            if let refusal = stateGate() { return (refusal, nil) }
+            let title = (args["title"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty else { return ("What's the event called?", nil) }
+            guard let start = (args["start"] as? String), !start.isEmpty else { return ("When does it start?", nil) }
+            return (await PlummyTools.addCalendarEvent(title, start: start, end: args["end"] as? String), nil)
         default:
             return ("Unknown tool \(name).", nil)
         }
@@ -506,6 +570,19 @@ final class RealtimeHost {
         return nil
     }
 
+    /// A lighter gate for tools that change state but don't drive the mouse/keyboard (clipboard,
+    /// files, reminders, events): they need computer control on and respect the stop hotkey, but
+    /// don't need Accessibility.
+    private func stateGate() -> String? {
+        if !Settings.shared.computerControl {
+            return "The user has turned off computer control in the menu bar. You can still look and point."
+        }
+        if CACurrentMediaTime() < stoppedUntil {
+            return "The user pressed stop. Don't do anything else until they ask again."
+        }
+        return nil
+    }
+
     /// Shortcuts that log out, lock the screen or force-quit apps are left to the user.
     private static let refusedShortcuts: Set<String> = ["cmd+shift+q", "cmd+option+shift+q", "ctrl+cmd+q", "cmd+option+escape", "cmd+option+esc"]
 
@@ -531,7 +608,7 @@ final class RealtimeHost {
             let verb = right ? "Right-clicked" : count == 2 ? "Double-clicked" : "Clicked"
             return await look(prefix: "\(verb) \(target.name == "that spot" ? "there" : "\"\(target.name)\"").")
 
-        case "type_text":
+        case "type_text", "dictate":
             let text = args["text"] as? String ?? ""
             guard !text.isEmpty else { return ("Nothing to type.", nil) }
             let field = ControlsReader.focusedField()
@@ -635,6 +712,13 @@ final class RealtimeHost {
             view.bubble(result.hasPrefix("Opened ") ? String(result.dropFirst(7).dropLast()) : "Hmm")
             try? await Task.sleep(for: .milliseconds(1800))
             return await look(prefix: result)
+
+        case "arrange_window":
+            let place = (args["where"] as? String ?? "").trimmingCharacters(in: .whitespaces)
+            let result = PlummyTools.arrangeWindow(place)
+            view.bubble("▭")
+            try? await Task.sleep(for: .milliseconds(250))
+            return (result, nil)
 
         default:
             return ("Unknown action \(name).", nil)
@@ -808,7 +892,9 @@ final class RealtimeHost {
 
     static let computerGuide = """
     You can also use the computer for the user with click, type_text, press_keys, scroll, drag, open_app and \
-    open_url. Only do things when the user asks you to; explaining is not doing. When asked to do something, just \
+    open_url — and dictate (type their words verbatim), read or set the clipboard, read their selection (to \
+    summarise it), save a screenshot to the Desktop, show a file in Finder, arrange the front window, and add \
+    reminders and calendar events. Only do things when the user asks you to; explaining is not doing. When asked to do something, just \
     do it silently, right away: no "okay", no "I'll set that up", no narration between steps. Work step by step: \
     act, then call look_at_screen to see what happened, then act again — and keep going until the WHOLE task is \
     done. Don't stop to ask what to do next between ordinary, reversible steps like searching, opening, scrolling, \
