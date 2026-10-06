@@ -1069,6 +1069,12 @@ final class CursorOverlay: NSObject {
         view.engine.talkUntil = CACurrentMediaTime() + seconds
     }
 
+    /// Hide or show the whole overlay window. While hidden it leaves the window list, so screen
+    /// automation can click other apps without the overlay owning the point. Driven by SIGUSR1/SIGUSR2.
+    func setHidden(_ hidden: Bool) {
+        if hidden { window?.orderOut(nil) } else { window?.orderFrontRegardless() }
+    }
+
     private func makeWindow() {
         guard let screen = NSScreen.screens.first else { return }
         if let window {

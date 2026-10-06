@@ -9,7 +9,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let server = PhoneServer()
     private var statusItem: NSStatusItem!
     private lazy var host = RealtimeHost(overlay: overlay)
+    private var hideSignal: DispatchSourceSignal?
+    private var showSignal: DispatchSourceSignal?
 
+    /// SIGUSR1 hides the cursor overlay, SIGUSR2 shows it — so screen automation can drive other apps
+    /// without quitting Plummy (`pkill -USR1 -f PlummyMac` to hide, `pkill -USR2 -f PlummyMac` to show).
+    private func setupOverlaySignals() {
+        signal(SIGUSR1, SIG_IGN)
+        signal(SIGUSR2, SIG_IGN)
+        let hide = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
+        hide.setEventHandler { [weak self] in self?.overlay.setHidden(true) }
+        hide.resume()
+        hideSignal = hide
+        let show = DispatchSource.makeSignalSource(signal: SIGUSR2, queue: .main)
+        show.setEventHandler { [weak self] in self?.overlay.setHidden(false) }
+        show.resume()
+        showSignal = show
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         Fonts.registerBundled()
@@ -22,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         overlay.onFace = { [weak self] face in self?.server.send(face) }
         overlay.start()
+        setupOverlaySignals()
         showDemoBubbleIfAsked()
         checkPermissions()
         if let path = ProcessInfo.processInfo.environment["PLUMMY_DEMO_TRANSCRIBE"], let audio = FileManager.default.contents(atPath: path) {
