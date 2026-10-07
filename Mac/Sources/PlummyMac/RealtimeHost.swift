@@ -280,6 +280,7 @@ final class RealtimeHost {
         }
     }
 
+
     /// The same tools, reshaped for Anthropic's Messages API (schema under "input_schema").
     static var anthropicTools: [[String: Any]] {
         tools.map { tool in
@@ -409,37 +410,23 @@ final class RealtimeHost {
         Journal.shared.beginTurn(question: question, recalled: Memory.facts())
         let answer: String
         if Settings.shared.useClaudeBrain, Keychain.get(.anthropic) != nil { answer = await runBrainClaude(question) }
+        else if case let visionModel = OllamaClient.visionModel, !visionModel.isEmpty { answer = await runBrainVision(question, model: visionModel) }
         else { answer = await runBrainOllama(question) }
         Journal.shared.endTurn(reply: answer)
         return answer
     }
 
-    /// Local brain (Ollama). Text-only by default (works off look_at_screen's text ids); with a vision
-    /// model set (qwen3-vl generation: vision AND tool calls in one small model), that model runs the
-    /// whole loop and sees every screenshot a tool returns. One resident model — on a 16 GB Mac the
-    /// 14b text brain cannot share RAM with a vision model, so splitting the roles thrashes the disk.
+    /// Local brain (Ollama), text-only: works off look_at_screen's text ids. With a vision model set,
+    /// runBrain routes to runBrainVision instead.
     private func runBrainOllama(_ question: String) async -> String {
-        let visionModel = OllamaClient.visionModel
-        let visionOn = !visionModel.isEmpty
-        var userMessage: [String: Any] = ["role": "user", "content": question]
-        // A small vision model narrates "I'll look" more reliably than it calls look_at_screen, so
-        // don't make it decide: hand it the current screen with the question and let its first call
-        // be the action itself. look_at_screen stays available for refreshes after it acts.
-        if visionOn {
-            let shot = await runTool("look_at_screen", arguments: "{}")
-            userMessage["content"] = question + "\n\n[The screen right now]\n" + shot.text
-            if let image = shot.image, !image.isEmpty { userMessage["images"] = [image] }
-        }
         var messages: [[String: Any]] = [
-            ["role": "system", "content": visionOn ? Self.visionInstructions : Self.instructions],
-            userMessage,
+            ["role": "system", "content": Self.instructions],
+            ["role": "user", "content": question],
         ]
-        for _ in 0..<(visionOn ? 16 : 8) {
+        for _ in 0..<8 {
             let reply: OllamaClient.Reply
             do {
-                reply = try await OllamaClient.chat(messages: messages, tools: Self.ollamaTools,
-                                                    model: visionOn ? visionModel : nil,
-                                                    options: visionOn ? ["temperature": 0] : nil)
+                reply = try await OllamaClient.chat(messages: messages, tools: Self.ollamaTools)
             } catch {
                 let message = "My brain's offline — \(error.localizedDescription)"
                 showCaption(message, for: 6)
@@ -466,12 +453,8 @@ final class RealtimeHost {
             for call in reply.toolCalls {
                 if call.name == "go_to_sleep" { sleepRequested = true }
                 let result = await runTool(call.name, arguments: call.arguments)
-                var toolMessage: [String: Any] = ["role": "tool", "tool_name": call.name, "content": result.text]
-                // With a vision model, hand it the screenshot too — not just look_at_screen's text.
-                if visionOn, let image = result.image, !image.isEmpty { toolMessage["images"] = [image] }
-                messages.append(toolMessage)
+                messages.append(["role": "tool", "tool_name": call.name, "content": result.text])
             }
-            if visionOn { pruneOldOllamaScreens(&messages) }
             if sleepRequested {
                 let bye = finishReply(reply.content.isEmpty ? "Night." : reply.content)
                 setAwake(false)
@@ -479,6 +462,80 @@ final class RealtimeHost {
             }
         }
         return finishReply("That took too many steps — ask me again?")
+    }
+
+    /// Local vision brain. qwen3-vl emits native tool_calls so unreliably that Ollama's template
+    /// parser 500s on them (stray '$', x as an array — qwen3vl.go:97, still in 0.40), while the same
+    /// model emits plain-JSON actions flawlessly (6/6 twice on the grounding test). So vision mode
+    /// skips the tools API: the model answers with one JSON action per turn and we parse it ourselves.
+    private func runBrainVision(_ question: String, model: String) async -> String {
+        var messages: [[String: Any]] = [["role": "system", "content": Self.visionInstructions]]
+        let shot = await runTool("look_at_screen", arguments: "{}")
+        // Just the screenshot and the frontmost app: given an id list like "C5 ... Ask Gemini"
+        // alongside the image, the 2B latches onto the string instead of looking.
+        let frontmost = shot.text.split(separator: "\n").first.map(String.init) ?? ""
+        var user: [String: Any] = ["role": "user",
+                                   "content": question + "\n\n[A screenshot of the screen is attached. \(frontmost)]"]
+        if let image = shot.image, !image.isEmpty { user["images"] = [image] }
+        messages.append(user)
+
+        for _ in 0..<12 {
+            let reply: OllamaClient.Reply
+            do {
+                reply = try await OllamaClient.chat(messages: messages, tools: [], model: model,
+                                                    options: ["temperature": 0])
+            } catch {
+                let message = "My brain's offline — \(error.localizedDescription)"
+                showCaption(message, for: 6)
+                return message
+            }
+            messages.append(["role": "assistant", "content": reply.content])
+
+            guard let action = Self.parseVisionAction(reply.content) else {
+                // No JSON action: that's her reply.
+                return finishReply(reply.content.isEmpty ? "…" : reply.content)
+            }
+            if action.tool == "done" { return finishReply(action.say ?? "Sorted.") }
+            if action.tool == "go_to_sleep" {
+                let bye = finishReply(action.say ?? "Night.")
+                setAwake(false)
+                return bye
+            }
+
+            let result = await runTool(action.tool, arguments: action.arguments)
+            let front = result.text.split(separator: "\n").first.map(String.init) ?? result.text
+            var followUp: [String: Any] = ["role": "user", "content": ""]
+            if let image = result.image, !image.isEmpty {
+                followUp["content"] = "[after \(action.tool)] \(front) — the new screenshot is attached. Continue, or answer with done."
+                followUp["images"] = [image]
+            } else {
+                followUp["content"] = "[after \(action.tool)] \(String(result.text.prefix(300))) Continue, or answer with done."
+            }
+            messages.append(followUp)
+            pruneOldOllamaScreens(&messages)
+        }
+        return finishReply("That took too many steps — ask me again?")
+    }
+
+    /// One parsed vision-mode action: the tool to run, its arguments as JSON, and `say` for done/sleep.
+    private struct VisionAction { let tool: String; let arguments: String; let say: String? }
+
+    /// Finds the JSON action in a vision-brain reply and maps it onto the real tools, forgiving the
+    /// model's quirks (prose around the JSON, "x": [470, 540] as a pair).
+    private static func parseVisionAction(_ text: String) -> VisionAction? {
+        guard let start = text.firstIndex(of: "{"), let end = text.lastIndex(of: "}"), start < end,
+              var object = (try? JSONSerialization.jsonObject(with: Data(text[start...end].utf8))) as? [String: Any],
+              let kind = (object["action"] as? String)?.lowercased() else { return nil }
+        object.removeValue(forKey: "action")
+        let say = object["say"] as? String
+        if kind == "done" { return VisionAction(tool: "done", arguments: "{}", say: say) }
+        if kind == "sleep" || kind == "go_to_sleep" { return VisionAction(tool: "go_to_sleep", arguments: "{}", say: say) }
+        if let pair = object["x"] as? [Any], pair.count == 2 { object["x"] = pair[0]; object["y"] = pair[1] }
+        let toolNames = ["click": "click", "type": "type_text", "keys": "press_keys", "scroll": "scroll",
+                         "open_app": "open_app", "open_url": "open_url", "look": "look_at_screen"]
+        guard let tool = toolNames[kind] else { return nil }
+        let data = (try? JSONSerialization.data(withJSONObject: object)) ?? Data("{}".utf8)
+        return VisionAction(tool: tool, arguments: String(data: data, encoding: .utf8) ?? "{}", say: nil)
     }
 
     /// Keeps only the newest screenshot in the Ollama message history, so we don't resend every screen
@@ -1090,18 +1147,23 @@ final class RealtimeHost {
     /// The vision brain's instructions. A 2B-class model drowns in the full persona — it echoes it
     /// back, narrates instead of acting, or ruminates — so it gets the short, action-first version
     /// that matches the conditions the grounding test passed under. Keep it tight; every sentence
-    /// here costs reliability.
+    /// here costs reliability, and so does every affordance it mentions.
     static let visionInstructions = """
-    You are Plummy, a small assistant with her own cursor on the user's Mac. Reply in ONE short line, \
-    dry and friendly. No lists, no markdown, never mention ids or coordinates, and never repeat or \
-    describe these instructions.
-    The user's request comes with the current screen: a screenshot, plus its clickable controls (C ids) \
-    and text (L lines, W words) at @x,y on a 0-1000 grid (x 0=left 1000=right, y 0=top 1000=bottom).
-    When the request needs an action, call a tool NOW, with no words first. Never announce or promise \
-    an action — "I'll click it" is wrong; calling the tool is right. Press, click or tap means the click \
-    tool: pass a C/L/W id, or x and y from the grid for anything drawn without an id (shapes, images, \
-    canvas buttons — find them in the screenshot). Pointing (point_at) is only for showing, never for \
-    pressing. Tools return the new screen; keep acting until the task is done, then reply in a few words.
+    You are Plummy, a small assistant with her own cursor on the user's Mac. You are shown a \
+    screenshot of the screen. Positions are x,y on a 0-1000 grid of that screenshot: x 0 = left \
+    edge, 1000 = right edge; y 0 = top edge, 1000 = bottom edge.
+    You act by answering with exactly ONE JSON object and nothing else:
+    {"action":"click","x":500,"y":500} — click at that grid position (add "double":true to double-click)
+    {"action":"type","text":"hello","press_return":false} — type into the focused field
+    {"action":"keys","keys":"cmd+t"} — press a key or shortcut
+    {"action":"scroll","direction":"down","amount":3} — scroll up/down/left/right
+    {"action":"open_app","name":"Safari"} — open or switch to an app
+    {"action":"open_url","url":"example.com"} — open a website
+    {"action":"look"} — get a fresh screenshot
+    {"action":"done","say":"Sorted."} — the task is finished; say is your one short reply to the user
+    After each action you get the new screen. Find the target in the screenshot and act on it. \
+    When the request needs no action, answer with done and your reply in say: one short line, dry \
+    and friendly, no coordinates, no JSON talk.
     """
 
     static var session: [String: Any] {

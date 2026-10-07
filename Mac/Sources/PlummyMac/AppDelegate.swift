@@ -324,9 +324,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         qwen3-vl generation does (older ones like qwen2.5vl and moondream don't). It then runs the whole \
         local brain and sees the screen like the Claude brain, in one small model that fits this Mac's \
         memory. Use an instruct variant — the thinking ones ruminate for minutes on a prompt this size. \
-        qwen3-vl:2b-instruct aced the grounding test here; pull it first in Terminal: \
-        ollama pull qwen3-vl:2b-instruct. Leave empty and Save for the text-only brain (bigger model, \
-        no eyes). Everything stays on this Mac either way.
+        qwen3-vl:2b-instruct is the proven pick here (4b trips a tool-call parser bug in today's \
+        Ollama); pull it first in Terminal: ollama pull qwen3-vl:2b-instruct. Leave empty and Save \
+        for the text-only brain (bigger model, no eyes). Everything stays on this Mac either way.
         """
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
         field.stringValue = OllamaClient.visionModel
