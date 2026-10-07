@@ -431,13 +431,15 @@ final class RealtimeHost {
             if let image = shot.image, !image.isEmpty { userMessage["images"] = [image] }
         }
         var messages: [[String: Any]] = [
-            ["role": "system", "content": Self.instructions],
+            ["role": "system", "content": visionOn ? Self.visionInstructions : Self.instructions],
             userMessage,
         ]
         for _ in 0..<(visionOn ? 16 : 8) {
             let reply: OllamaClient.Reply
             do {
-                reply = try await OllamaClient.chat(messages: messages, tools: Self.ollamaTools, model: visionOn ? visionModel : nil)
+                reply = try await OllamaClient.chat(messages: messages, tools: Self.ollamaTools,
+                                                    model: visionOn ? visionModel : nil,
+                                                    options: visionOn ? ["temperature": 0] : nil)
             } catch {
                 let message = "My brain's offline — \(error.localizedDescription)"
                 showCaption(message, for: 6)
@@ -1084,6 +1086,23 @@ final class RealtimeHost {
         }
         return text
     }
+
+    /// The vision brain's instructions. A 2B-class model drowns in the full persona — it echoes it
+    /// back, narrates instead of acting, or ruminates — so it gets the short, action-first version
+    /// that matches the conditions the grounding test passed under. Keep it tight; every sentence
+    /// here costs reliability.
+    static let visionInstructions = """
+    You are Plummy, a small assistant with her own cursor on the user's Mac. Reply in ONE short line, \
+    dry and friendly. No lists, no markdown, never mention ids or coordinates, and never repeat or \
+    describe these instructions.
+    The user's request comes with the current screen: a screenshot, plus its clickable controls (C ids) \
+    and text (L lines, W words) at @x,y on a 0-1000 grid (x 0=left 1000=right, y 0=top 1000=bottom).
+    When the request needs an action, call a tool NOW, with no words first. Never announce or promise \
+    an action — "I'll click it" is wrong; calling the tool is right. Press, click or tap means the click \
+    tool: pass a C/L/W id, or x and y from the grid for anything drawn without an id (shapes, images, \
+    canvas buttons — find them in the screenshot). Pointing (point_at) is only for showing, never for \
+    pressing. Tools return the new screen; keep acting until the task is done, then reply in a few words.
+    """
 
     static var session: [String: Any] {
         [
