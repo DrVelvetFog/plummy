@@ -323,13 +323,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         Give the offline (Ollama) brain eyes. Enter a vision model that also does tool calls — the \
         qwen3-vl generation does (older ones like qwen2.5vl and moondream don't). It then runs the whole \
         local brain and sees the screen like the Claude brain, in one small model that fits this Mac's \
-        memory. qwen3-vl:2b aced the grounding test here; pull it first in Terminal: \
-        ollama pull qwen3-vl:2b. Leave empty and Save for the text-only brain (bigger model, no eyes). \
-        Everything stays on this Mac either way.
+        memory. Use an instruct variant — the thinking ones ruminate for minutes on a prompt this size. \
+        qwen3-vl:2b-instruct aced the grounding test here; pull it first in Terminal: \
+        ollama pull qwen3-vl:2b-instruct. Leave empty and Save for the text-only brain (bigger model, \
+        no eyes). Everything stays on this Mac either way.
         """
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
         field.stringValue = OllamaClient.visionModel
-        field.placeholderString = "qwen3-vl:2b  (empty = text-only)"
+        field.placeholderString = "qwen3-vl:2b-instruct  (empty = text-only)"
         alert.accessoryView = field
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
