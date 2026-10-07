@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Eyes Test</title>
+<style>
+  body { margin: 0; background: #1b1724; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+// A "button" that exists only as drawn pixels: no DOM element, no accessibility node.
+// Only something that can actually SEE the screen can find it. Clicking inside the
+// circle flips the whole canvas to a green CLICKED state.
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+let clicked = false;
+
+function draw() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  if (clicked) {
+    ctx.fillStyle = "#153a24";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#6fe39a";
+    ctx.font = "bold 90px -apple-system, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("CLICKED", cx, cy + 20);
+    document.title = "Eyes Test — CLICKED";
+    return;
+  }
+  ctx.fillStyle = "#1b1724";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#cbc3e0";
+  ctx.font = "26px -apple-system, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("Press the round purple button", cx, cy - 160);
+  ctx.beginPath();
+  ctx.arc(cx, cy, 70, 0, Math.PI * 2);
+  ctx.fillStyle = "#8b5cf6";
+  ctx.fill();
+  ctx.fillStyle = "white";
+  ctx.font = "bold 24px -apple-system, sans-serif";
+  ctx.fillText("PRESS", cx, cy + 9);
+}
+
+canvas.addEventListener("mousedown", (e) => {
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  if (!clicked && Math.hypot(e.clientX - cx, e.clientY - cy) <= 70) {
+    clicked = true;
+    draw();
+  }
+});
+window.addEventListener("resize", draw);
+draw();
+</script>
+</body>
+</html>
