@@ -8,3 +8,5 @@ xcuserdata/
 Secrets.xcconfig
 *.env
 .env*
+tools/loop-test/*.png
+tools/loop-test/visual/

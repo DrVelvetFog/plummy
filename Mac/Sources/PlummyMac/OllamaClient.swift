@@ -9,8 +9,9 @@ enum OllamaClient {
         return saved.isEmpty ? "qwen2.5:14b" : saved
     }
 
-    /// A local vision model (e.g. "qwen2.5vl") so the brain can SEE the screen, not just its text. Empty =
-    /// text-only. Set it from the menu bar ("Local Vision Model…"); it must do both vision and tool calls.
+    /// A local vision model (e.g. "qwen3-vl:2b") that gives the brain EYES: it never takes tool calls
+    /// (no local vision model does), it just gets one see-turn per screenshot and reports what's there
+    /// and where. Empty = text-only. Set it from the menu bar ("Local Vision Model…").
     static var visionModel: String {
         UserDefaults.standard.string(forKey: "ollamaVisionModel")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
@@ -38,17 +39,21 @@ enum OllamaClient {
     }
 
     /// One chat round: send the conversation plus the tool list, get back the assistant's message.
-    static func chat(messages: [[String: Any]], tools: [[String: Any]], model: String? = nil) async throws -> Reply {
+    static func chat(messages: [[String: Any]], tools: [[String: Any]], model: String? = nil,
+                     options: [String: Any]? = nil) async throws -> Reply {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 120
-        request.httpBody = try JSONSerialization.data(withJSONObject: [
+        var body: [String: Any] = [
             "model": model ?? Self.model,
             "messages": messages,
-            "tools": tools,
             "stream": false,
-        ])
+        ]
+        // Vision models reject a tools list outright, so only send one when there are tools to send.
+        if !tools.isEmpty { body["tools"] = tools }
+        if let options { body["options"] = options }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let data: Data, response: URLResponse
         do {
@@ -85,5 +90,24 @@ enum OllamaClient {
             }
         }
         return Reply(content: content, toolCalls: calls)
+    }
+
+    /// One SEE turn of the split brain: the vision model looks at a screenshot and reports what matters
+    /// for the task, with 0-1000 grid positions the text brain can click. Alternating see (here) and act
+    /// (the text brain's tools) is what lets small vision models help at all — none of them take tools.
+    static func see(task: String, imageBase64: String) async throws -> String {
+        let prompt = """
+        You are the eyes of a Mac assistant. This is a screenshot of the user's screen. \
+        The assistant's current task is: \(task)
+        Describe only what matters for the task: what state the screen is in, and any control (button, \
+        link, field) the assistant may need, each with its center as x,y on a 0-1000 grid \
+        (x: 0 = left edge, 1000 = right edge; y: 0 = top edge, 1000 = bottom edge). Be brief. Do not act.
+        """
+        let reply = try await chat(
+            messages: [["role": "user", "content": prompt, "images": [imageBase64]]],
+            tools: [],
+            model: visionModel,
+            options: ["temperature": 0])
+        return reply.content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
