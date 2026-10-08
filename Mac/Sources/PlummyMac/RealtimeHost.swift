@@ -470,14 +470,30 @@ final class RealtimeHost {
         Journal.shared.beginTurn(question: question, recalled: Memory.facts())
         let answer: String
         if Settings.shared.useClaudeBrain, Keychain.get(.anthropic) != nil { answer = await runBrainClaude(question) }
-        else if case let visionModel = OllamaClient.visionModel, !visionModel.isEmpty { answer = await runBrainVision(question, model: visionModel) }
+        else if case let visionModel = OllamaClient.visionModel, !visionModel.isEmpty, Self.wantsScreenAction(question) {
+            answer = await runBrainVision(question, model: visionModel)
+        }
         else { answer = await runBrainOllama(question) }
         Journal.shared.endTurn(reply: answer)
         return answer
     }
 
+    /// The vision brain only speaks screen actions (click, type, scroll…) — it can't answer a
+    /// question or use her other tools, so sending it "are you verified?" turned into clicking
+    /// a "yes" on screen twelve times. Route to it only when the ask sounds like doing something
+    /// on the screen; questions and conversation go to the text brain with the full tool set
+    /// (which can still act on labelled things via look_at_screen ids).
+    private static func wantsScreenAction(_ question: String) -> Bool {
+        let q = " " + question.lowercased() + " "
+        let verbs = ["click", "press", "push", "poke", "boop", "tap", "open", "close", "quit",
+                     "launch", "type", "scroll", "drag", "play", "pause", "skip", "mute",
+                     "switch to", "go to", "select", "choose", "pick the", "hit the",
+                     "move the", "resize", "snap", "turn on", "turn off", "button", "icon"]
+        return verbs.contains { q.contains(" " + $0) || q.contains($0 + " ") }
+    }
+
     /// Local brain (Ollama), text-only: works off look_at_screen's text ids. With a vision model set,
-    /// runBrain routes to runBrainVision instead.
+    /// runBrain routes screen-action asks to runBrainVision instead.
     private func runBrainOllama(_ question: String) async -> String {
         var messages: [[String: Any]] = [
             ["role": "system", "content": Self.instructions],
