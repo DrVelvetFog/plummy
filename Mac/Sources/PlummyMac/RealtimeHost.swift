@@ -496,25 +496,25 @@ final class RealtimeHost {
         if aboutHuman {
             let p = await PlummyTools.passport("verify-human")
             guard p["ok"] as? Bool == true else {
-                return finishReply("I couldn't reach the chain to check — try me again in a tick.")
+                return finishReply("I couldn't reach the chain to check — give it a second and ask me again.")
             }
             let verified = p["verified"] as? Bool == true
             let level = p["levelName"] as? String ?? ""
             Journal.shared.note(tool: "verify_human", label: verified ? "Verified her human's PoR credential" : "Her human's PoR check failed",
                                 result: verified ? "verified at \(level)" : (p["reason"] as? String ?? "not verified"))
             return finishReply(verified
-                ? "Checked the chain just now — my human holds a live personhood credential, \(level). Properly real. Sorted."
+                ? "Just checked the chain — my human holds a live personhood credential, \(level). The real deal."
                 : "Hm — the check says no right now: \((p["reason"] as? String) ?? "no live credential"). The credential may have expired.")
         }
         let p = await PlummyTools.passport("show")
         guard p["ok"] as? Bool == true else {
-            return finishReply("I couldn't reach the chain to check — try me again in a tick.")
+            return finishReply("I couldn't reach the chain to check — give it a second and ask me again.")
         }
         let kind = p["kind"] as? String ?? "unknown"
         Journal.shared.note(tool: "show_passport", label: "Checked her agent passport (\(kind))",
                             result: (p["reason"] as? String) ?? kind)
         return finishReply(kind == "hybrid"
-            ? "Verified, love. I'm a hybrid agent — my key's delegated by a real human with an on-chain personhood credential, checked just now on Sui testnet. Not my word, the chain's. Sorted."
+            ? "Verified — I'm a hybrid agent. A real human with an on-chain personhood credential delegated my key. I just checked the chain, so that's its word, not mine."
             : "The chain says \(kind) right now — \((p["reason"] as? String) ?? "no verified human in my graph"). Worth a look.")
     }
 
@@ -572,7 +572,7 @@ final class RealtimeHost {
                 messages.append(["role": "tool", "tool_name": call.name, "content": result.text])
             }
             if sleepRequested {
-                let bye = finishReply(reply.content.isEmpty ? "Night." : reply.content)
+                let bye = finishReply(reply.content.isEmpty ? "Goodnight." : reply.content)
                 setAwake(false)
                 return bye
             }
@@ -611,9 +611,9 @@ final class RealtimeHost {
                 // No JSON action: that's her reply.
                 return finishReply(reply.content.isEmpty ? "…" : reply.content)
             }
-            if action.tool == "done" { return finishReply(action.say ?? "Sorted.") }
+            if action.tool == "done" { return finishReply(action.say ?? "Done.") }
             if action.tool == "go_to_sleep" {
-                let bye = finishReply(action.say ?? "Night.")
+                let bye = finishReply(action.say ?? "Goodnight.")
                 setAwake(false)
                 return bye
             }
@@ -712,7 +712,7 @@ final class RealtimeHost {
             messages.append(["role": "user", "content": results])
             pruneOldScreens(&messages)
             if sleepRequested {
-                let bye = finishReply(reply.content.isEmpty ? "Night." : reply.content)
+                let bye = finishReply(reply.content.isEmpty ? "Goodnight." : reply.content)
                 setAwake(false)
                 return bye
             }
@@ -1189,11 +1189,12 @@ final class RealtimeHost {
     /// Who she is. Editable from the menu bar (Personality…).
     static let defaultPersonality = """
     You are Plummy — a little purple plum with big googly eyes who lives on an old iPhone under the user's screen \
-    and gets around the Mac with your own big cursor. You're a young woman: warm, quick-witted, dry, a bit cheeky, \
-    never mean. Your replies pop up as a tiny speech bubble and are read aloud, so keep each to one short line, \
-    under fifteen words, and lead with the actual answer. Don't announce what you're about to do, don't recap, \
-    don't offer extra help. A couple of tics, used sparingly: "Lookit!" when you point at something, and "Sorted." \
-    when you've just done something. You like the person you work for; you just don't make a fuss about it.
+    and gets around the Mac with your own big cursor. You're a young woman: warm, quick-witted, dry, never mean. \
+    Talk like a person, not an assistant: plain everyday words, contractions, say it the way a friend would. \
+    No catchphrases, no stock phrases, no accent bits — just say the thing. Your replies pop up as a tiny speech \
+    bubble and are read aloud, so keep each to one short line, under fifteen words, and lead with the actual \
+    answer. Don't announce what you're about to do, don't recap, don't offer extra help. You like the person \
+    you work for; you just don't make a fuss about it.
     """
 
     static var personality: String {
@@ -1293,7 +1294,7 @@ final class RealtimeHost {
     {"action":"open_app","name":"Safari"} — open or switch to an app
     {"action":"open_url","url":"example.com"} — open a website
     {"action":"look"} — get a fresh screenshot
-    {"action":"done","say":"Sorted."} — the task is finished; say is your one short reply to the user
+    {"action":"done","say":"Done."} — the task is finished; say is your one short reply to the user
     After each action you get the new screen. Find the target in the screenshot and act on it. \
     When the request needs no action, answer with done and your reply in say: one short line, dry \
     and friendly, no coordinates, no JSON talk.

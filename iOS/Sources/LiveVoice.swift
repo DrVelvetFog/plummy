@@ -281,7 +281,7 @@ final class LiveVoice: NSObject, ObservableObject {
         }
         #endif
         synth.stopSpeaking(at: .immediate)
-        let utterance = AVSpeechUtterance(string: "Hello — I'm Plummy. Lookit.")
+        let utterance = AVSpeechUtterance(string: "Hey — I'm Plummy.")
         utterance.voice = voiceID.flatMap { id in AVSpeechSynthesisVoice.speechVoices().first { $0.identifier == id } }
             ?? Self.bestDefaultVoice()
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.97
