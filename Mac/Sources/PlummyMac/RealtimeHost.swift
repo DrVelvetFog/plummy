@@ -204,6 +204,10 @@ final class RealtimeHost {
                  ["text": ["type": "string"]], required: ["text"]),
             tool("undo",
                  "Undo the last thing you did that can be undone — a clipboard change, a moved window, a saved screenshot, a reminder or calendar event, or something you remembered. Use when the user says undo, undo that, or put it back."),
+            tool("show_passport",
+                 "Show your agent passport — your on-chain identity, checked live. It proves you're a \"hybrid\" agent: your own key, delegated by a human who holds a personhood credential. Use when the user asks who you are on-chain, whether you're verified, or about your passport."),
+            tool("verify_human",
+                 "Check live, on-chain, that the human behind you holds a current PoR personhood credential. Use when the user asks whether their credential is valid, or whether your human is verified or real."),
         ]
         guard Settings.shared.computerControl else { return list }
         let target: [String: Any] = ["type": "string", "description": "An id from look_at_screen (C, L or W). Leave out to use x and y."]
@@ -295,6 +299,12 @@ final class RealtimeHost {
 
     private static let actionNames: Set<String> = ["click", "type_text", "press_keys", "scroll", "drag", "open_app", "open_url", "dictate", "arrange_window"]
 
+    /// "0xfe71da81…ce86e7" for a long on-chain address (passport tools).
+    private func short(_ address: String?) -> String {
+        guard let a = address, a.count > 16 else { return address ?? "unknown" }
+        return "\(a.prefix(10))…\(a.suffix(6))"
+    }
+
     private func runTool(_ name: String, arguments: String) async -> (text: String, image: String?) {
         let args = (try? JSONSerialization.jsonObject(with: Data(arguments.utf8)) as? [String: Any]) ?? [:]
         if Self.actionNames.contains(name) {
@@ -336,6 +346,34 @@ final class RealtimeHost {
         case "go_to_sleep":
             // The phone closes the session after this call; the Mac just tidies up.
             return ("Going to sleep. Say a very short goodbye.", nil)
+        case "show_passport":
+            let p = await PlummyTools.passport("show")
+            guard p["ok"] as? Bool == true else {
+                return ("I couldn't read my passport: \((p["error"] as? String) ?? "unknown error"). Tell the user in a few words.", nil)
+            }
+            let kind = p["kind"] as? String ?? "unknown"
+            let human = short(p["human"] as? String)
+            let me = short(p["agentAddress"] as? String)
+            let level = p["porLevelName"] as? String ?? "none"
+            let text = kind == "hybrid"
+                ? "Passport checked live on Sui testnet: kind HYBRID. My key \(me) is an authorized delegate of an on-chain account owned by \(human), who holds a PoR personhood credential (\(level)). So a verified human is provably behind me — it's on-chain, not my word."
+                : "Passport checked live on Sui testnet: kind \(kind.uppercased()). Reason: \((p["reason"] as? String) ?? "unknown"). My key is \(me)."
+            Journal.shared.note(tool: "show_passport", label: "Checked her agent passport (\(kind))", result: text)
+            return (text, nil)
+        case "verify_human":
+            let p = await PlummyTools.passport("verify-human")
+            guard p["ok"] as? Bool == true else {
+                return ("I couldn't run the check: \((p["error"] as? String) ?? "unknown error"). Tell the user in a few words.", nil)
+            }
+            let verified = p["verified"] as? Bool == true
+            let human = short(p["human"] as? String)
+            let level = p["levelName"] as? String ?? "none"
+            let cred = short(p["credentialId"] as? String)
+            let text = verified
+                ? "Checked live on Sui testnet: the human behind me, \(human), holds a current PoR credential \(cred) at \(level). Verified."
+                : "Checked live on Sui testnet: \(human) does NOT currently verify — \((p["reason"] as? String) ?? "no credential"). The credential may have expired."
+            Journal.shared.note(tool: "verify_human", label: verified ? "Verified her human's PoR credential" : "Her human's PoR check failed", result: text)
+            return (text, nil)
         case "read_clipboard":
             let text = PlummyTools.readClipboard()
             Journal.shared.note(tool: "read_clipboard", label: "Read the clipboard", result: text)
@@ -1100,6 +1138,12 @@ final class RealtimeHost {
     use it naturally, and never say you can't recall past chats. When the user tells you something worth \
     keeping about themselves, their work or how they like things, call remember with one short fact (don't \
     re-save what's already listed). If they ask you to forget something, call forget.
+
+    Identity: you carry an on-chain Agent Passport. show_passport proves, live, that a verified human \
+    delegated your key — you're a "hybrid" agent, not an anonymous bot. verify_human checks that human's \
+    personhood credential on-chain right now. Use them when asked if you're verified, who's behind you, \
+    or whether your human is real; summarise the result in one plain line, keep the short addresses, and \
+    never claim more than the check returned.
     """
 
     static let computerGuide = """

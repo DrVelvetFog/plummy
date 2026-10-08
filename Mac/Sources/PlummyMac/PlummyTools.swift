@@ -15,6 +15,65 @@ struct UndoStep {
 /// The state-changing ones return an `UndoStep` so RealtimeHost can offer "undo that".
 enum PlummyTools {
 
+    // MARK: Agent Passport (Phase 6 — verified agent)
+
+    /// Plummy's on-chain identity. Her own key is an authorized delegate of a MemWal
+    /// account whose owner holds a PoR personhood credential, which classifies her as a
+    /// "hybrid" agent — an agent with a verified human behind it. The chain reads live in
+    /// the verified-agent checkout's CLI; this shells out to it and parses its JSON line.
+    /// Commands: "show" (classify + passport) and "verify-human" (live PoR check).
+    static func passport(_ command: String) async -> [String: Any] {
+        let repoDefault = NSString(string: "~/verified-agent").expandingTildeInPath
+        let repo = UserDefaults.standard.string(forKey: "passportRepoPath").map { NSString(string: $0).expandingTildeInPath } ?? repoDefault
+        guard FileManager.default.fileExists(atPath: repo + "/src/plummy-passport.ts") else {
+            return ["ok": false, "error": "the verified-agent checkout isn't at \(repo)"]
+        }
+        guard let node = ["/opt/homebrew/bin/node", "/usr/local/bin/node", "/usr/bin/node"]
+            .first(where: { FileManager.default.isExecutableFile(atPath: $0) }) else {
+            return ["ok": false, "error": "node isn't installed where I can find it"]
+        }
+        let out: String? = await withCheckedContinuation { cont in
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: node)
+            process.arguments = ["--import", "tsx", "src/plummy-passport.ts", command]
+            process.currentDirectoryURL = URL(fileURLWithPath: repo)
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = Pipe()
+            let finished = ManagedAtomic()
+            process.terminationHandler = { _ in
+                guard finished.claim() else { return }
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                cont.resume(returning: String(data: data, encoding: .utf8))
+            }
+            do { try process.run() } catch {
+                guard finished.claim() else { return }
+                cont.resume(returning: nil)
+                return
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 45) {
+                if process.isRunning { process.terminate() }
+            }
+        }
+        guard let line = out?.split(separator: "\n").last(where: { $0.hasPrefix("{") }),
+              let obj = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any] else {
+            return ["ok": false, "error": "the passport check didn't answer (is the network up?)"]
+        }
+        return obj
+    }
+
+    /// One-shot guard so a Process continuation resumes exactly once.
+    private final class ManagedAtomic: @unchecked Sendable {
+        private let lock = NSLock()
+        private var done = false
+        func claim() -> Bool {
+            lock.lock(); defer { lock.unlock() }
+            if done { return false }
+            done = true
+            return true
+        }
+    }
+
     // MARK: Clipboard
 
     static func readClipboard() -> String {

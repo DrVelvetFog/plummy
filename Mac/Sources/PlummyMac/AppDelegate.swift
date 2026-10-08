@@ -353,6 +353,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let mood = item.representedObject as? String, let m = Mood(rawValue: mood) { settings.mood = m }
     }
 
+    @objc private func showPassport() {
+        Task { @MainActor in
+            let show = await PlummyTools.passport("show")
+            let human = await PlummyTools.passport("verify-human")
+            let alert = NSAlert()
+            alert.messageText = "Plummy's Agent Passport"
+            if show["ok"] as? Bool == true {
+                let kind = (show["kind"] as? String ?? "unknown").uppercased()
+                let lines = [
+                    "Kind: \(kind) — \((show["reason"] as? String) ?? "")",
+                    "Her key: \(show["agentAddress"] as? String ?? "?")",
+                    "Account: \(show["memwalAccountId"] as? String ?? "?")",
+                    "Human behind her: \(show["human"] as? String ?? "none")",
+                    "Human verifies now: \(human["verified"] as? Bool == true ? "YES — PoR \(human["levelName"] as? String ?? "")" : "no (\((human["reason"] as? String) ?? "check failed"))")",
+                    "Credential: \(human["credentialId"] as? String ?? "—")",
+                    "Network: \(show["network"] as? String ?? "sui:testnet") · checked live just now",
+                ]
+                alert.informativeText = lines.joined(separator: "\n")
+            } else {
+                alert.informativeText = "Couldn't check: \((show["error"] as? String) ?? "unknown error")"
+            }
+            alert.addButton(withTitle: "OK")
+            NSApp.activate(ignoringOtherApps: true)
+            alert.runModal()
+        }
+    }
+
     @objc private func showMemory() {
         let facts = Memory.facts()
         let alert = NSAlert()
@@ -445,6 +472,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("Open Action Journal", #selector(openJournal)))
         menu.addItem(item("Personality…", #selector(editPersonality)))
         menu.addItem(item("What She Remembers…", #selector(showMemory)))
+        menu.addItem(item("Her Passport…", #selector(showPassport)))
         menu.addItem(item("Anthropic API Key…", #selector(editAnthropicKey)))
         let claude = item("Think with Claude", #selector(toggleClaudeBrain))
         claude.state = (settings.useClaudeBrain && Keychain.get(.anthropic) != nil) ? .on : .off
