@@ -305,7 +305,27 @@ final class RealtimeHost {
         return "\(a.prefix(10))…\(a.suffix(6))"
     }
 
+    /// Small local models at temperature 0 can get stuck replaying one tool call.
+    /// Three identical calls in rapid succession is a loop, not intent — break it. The
+    /// time window keeps honest repeats (another look at the screen a minute later) free.
+    private var lastToolCall: String?
+    private var lastToolCallAt = 0.0
+    private var repeatedCalls = 0
+
     private func runTool(_ name: String, arguments: String) async -> (text: String, image: String?) {
+        let call = name + "|" + arguments
+        let now = CACurrentMediaTime()
+        if call == lastToolCall, now - lastToolCallAt < 30 {
+            repeatedCalls += 1
+            if repeatedCalls >= 2 {
+                lastToolCallAt = now
+                return ("You've made this exact call \(repeatedCalls + 1) times in a row — it's done. Stop calling tools and give the user your one-line answer now.", nil)
+            }
+        } else {
+            lastToolCall = call
+            repeatedCalls = 0
+        }
+        lastToolCallAt = now
         let args = (try? JSONSerialization.jsonObject(with: Data(arguments.utf8)) as? [String: Any]) ?? [:]
         if Self.actionNames.contains(name) {
             if let refusal = actionRefusal() { return (refusal, nil) }
@@ -445,6 +465,8 @@ final class RealtimeHost {
     /// Plummy's agent loop: ask the local model, run any tools it calls, feed the results back, and repeat
     /// until it gives a plain answer (or we hit the step limit). Runs on the Mac, where Ollama lives.
     private func runBrain(_ question: String) async -> String {
+        lastToolCall = nil
+        repeatedCalls = 0
         Journal.shared.beginTurn(question: question, recalled: Memory.facts())
         let answer: String
         if Settings.shared.useClaudeBrain, Keychain.get(.anthropic) != nil { answer = await runBrainClaude(question) }
@@ -1013,6 +1035,17 @@ final class RealtimeHost {
     private static let idleHome = 5.0
 
     private func point(to spot: CGPoint, showing thing: CGRect) {
+        // A looping brain can ask for the same spot over and over; replaying every request
+        // kept the cursor flying at one word for minutes. Pointing is communication, not a
+        // queue of chores: drop a duplicate of the last pending spot, and keep only the
+        // three most recent requests.
+        let current: CGPoint? = {
+            if let last = queue.last { return last.point }
+            if case .pinned(let p) = overlay.mode { return p }
+            return nil
+        }()
+        if let current, abs(current.x - spot.x) < 4, abs(current.y - spot.y) < 4 { return }
+        if queue.count >= 3 { queue.removeFirst(queue.count - 2) }
         queue.append((spot, thing))
         homeRequested = false
         startChoreography()
