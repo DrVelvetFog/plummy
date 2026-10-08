@@ -110,7 +110,10 @@ final class RealtimeHost {
             brainTask = Task { @MainActor in
                 await previousBrain?.value
                 let answer = await self.runBrain(question)
-                reply(Packet(command: "ask", callID: packet.callID, text: answer))
+                // Her real voice: synthesized here (Kokoro, local), played on the phone.
+                // nil audio = the phone falls back to its on-device voice.
+                let wav = await KokoroVoice.shared.synthesize(answer)
+                reply(Packet(command: "ask", audio: wav?.base64EncodedString(), callID: packet.callID, text: answer))
             }
         default:
             break

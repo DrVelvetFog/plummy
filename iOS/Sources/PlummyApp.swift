@@ -114,7 +114,9 @@ struct RootView: View {
     /// Connects the live voice to the Mac: keys, tools, captions and wake/sleep.
     private func wireLiveVoice() {
         live.ask = { [link] question, done in
-            link.request(Packet(command: "ask", text: question)) { reply in done(reply?.text) }
+            link.request(Packet(command: "ask", text: question)) { reply in
+                done(reply?.text, reply?.audio.flatMap { Data(base64Encoded: $0) })
+            }
         }
         live.onSessionStart = { [store, live] in
             store.start()

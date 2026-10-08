@@ -13,8 +13,9 @@ final class LiveVoice: NSObject, ObservableObject {
 
     @Published private(set) var state: State = .asleep
 
-    /// Sends a question to the Mac; calls back with the reply text (nil if the Mac went away).
-    var ask: ((String, @escaping (String?) -> Void) -> Void)?
+    /// Sends a question to the Mac; calls back with the reply text (nil if the Mac went away)
+    /// and, when the Mac made her real voice, the WAV audio to play instead of on-device TTS.
+    var ask: ((String, @escaping (String?, Data?) -> Void) -> Void)?
     var onStateChange: ((State) -> Void)?
     var onSessionStart: (() -> Void)?
     var onSessionEnd: (() -> Void)?
@@ -28,6 +29,9 @@ final class LiveVoice: NSObject, ObservableObject {
 
     /// On-device text-to-speech: she reads her replies aloud. Fully local.
     private let synth = AVSpeechSynthesizer()
+    /// Her real voice: reply audio made on the Mac (Kokoro), played here. nil = use `synth`.
+    private var replyPlayer: AVAudioPlayer?
+    private var replyBounce: Timer?
 
     override init() {
         super.init()
@@ -144,7 +148,7 @@ final class LiveVoice: NSObject, ObservableObject {
         let wasRunning = wantAwake
         wantAwake = false
         holding = false
-        synth.stopSpeaking(at: .immediate)
+        synth.stopSpeaking(at: .immediate); stopReplyPlayback()
         endRecognition()
         recorder.finish()
         if wasRunning { onSessionEnd?() }
@@ -167,7 +171,7 @@ final class LiveVoice: NSObject, ObservableObject {
     func beginAsk() {
         if state == .asleep { wake(); return }
         guard wantAwake, !holding else { return }
-        synth.stopSpeaking(at: .immediate)  // don't talk over the new question
+        synth.stopSpeaking(at: .immediate); stopReplyPlayback()  // don't talk over the new question
         holding = true
         startRecognition()
         setState(.asking)
@@ -231,7 +235,7 @@ final class LiveVoice: NSObject, ObservableObject {
             if wantAwake { setState(.listening) }
             return
         }
-        ask(question) { [weak self] answer in
+        ask(question) { [weak self] answer, audio in
             DispatchQueue.main.async {
                 guard let self, self.wantAwake else { return }
                 let reply = answer?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -239,7 +243,7 @@ final class LiveVoice: NSObject, ObservableObject {
                     self.onReply?(reply)
                     self.setState(.speaking)
                     if self.speakReplies {
-                        self.speak(reply)  // the synth delegate returns her to listening when done
+                        self.speak(reply, audio: audio)  // playback or the synth returns her to listening
                     } else {
                         self.chirp(syllables: min(max(reply.split(separator: " ").count, 3), 5))
                     }
@@ -259,8 +263,28 @@ final class LiveVoice: NSObject, ObservableObject {
 
     // MARK: Speaking (on-device TTS)
 
-    /// Reads a reply aloud. The synthesizer delegate takes her back to listening.
-    private func speak(_ text: String) {
+    /// Reads a reply aloud — her real voice from the Mac when it came along, on-device TTS otherwise.
+    /// Either path takes her back to listening when it finishes.
+    private func speak(_ text: String, audio: Data? = nil) {
+        if let audio, let player = try? AVAudioPlayer(data: audio) {
+            stopReplyPlayback()
+            replyPlayer = player
+            player.delegate = self
+            player.volume = Float(volume)
+            player.isMeteringEnabled = true
+            if player.play() {
+                level = 0.6
+                replyBounce = Timer.scheduledTimer(withTimeInterval: 0.08, repeats: true) { [weak self] _ in
+                    guard let self, let player = self.replyPlayer, player.isPlaying else { return }
+                    player.updateMeters()
+                    // Average power is ~-50 (quiet) to 0 (loud): map onto her mouth-movement range.
+                    let power = max(-50, player.averagePower(forChannel: 0))
+                    self.level = Double(0.2 + (power + 50) / 50 * 0.65)
+                }
+                return
+            }
+            replyPlayer = nil  // couldn't start: fall through to on-device TTS
+        }
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = voice
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate * 0.97
@@ -280,7 +304,7 @@ final class LiveVoice: NSObject, ObservableObject {
             try? session.setActive(true)
         }
         #endif
-        synth.stopSpeaking(at: .immediate)
+        synth.stopSpeaking(at: .immediate); stopReplyPlayback()
         let utterance = AVSpeechUtterance(string: "Hey — I'm Plummy.")
         utterance.voice = voiceID.flatMap { id in AVSpeechSynthesisVoice.speechVoices().first { $0.identifier == id } }
             ?? Self.bestDefaultVoice()
@@ -415,6 +439,23 @@ final class LiveVoice: NSObject, ObservableObject {
 }
 
 // MARK: - Text-to-speech delegate (drives the talking bounce and returns her to listening)
+
+extension LiveVoice: AVAudioPlayerDelegate {
+    fileprivate func stopReplyPlayback() {
+        replyBounce?.invalidate()
+        replyBounce = nil
+        replyPlayer?.stop()
+        replyPlayer = nil
+    }
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        DispatchQueue.main.async {
+            self.stopReplyPlayback()
+            self.level = 0
+            if self.wantAwake, self.state == .speaking { self.setState(.listening) }
+        }
+    }
+}
 
 extension LiveVoice: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {

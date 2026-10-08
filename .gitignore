@@ -10,3 +10,5 @@ Secrets.xcconfig
 .env*
 tools/loop-test/*.png
 tools/loop-test/visual/
+tools/voice-bakeoff/venv/
+tools/voice-bakeoff/*.wav

@@ -249,6 +249,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         host.stopActions()
     }
 
+    @objc private func toggleRealVoice() {
+        KokoroVoice.enabled.toggle()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        KokoroVoice.shared.stop()
+    }
+
     @objc private func toggleComputerControl() {
         settings.computerControl.toggle()
         if settings.computerControl && !ComputerControl.isTrusted { ComputerControl.askForPermission() }
@@ -474,6 +482,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("What She Remembers…", #selector(showMemory)))
         menu.addItem(item("Her Passport…", #selector(showPassport)))
         menu.addItem(item("Anthropic API Key…", #selector(editAnthropicKey)))
+        let realVoice = item("Her Real Voice", #selector(toggleRealVoice))
+        realVoice.state = KokoroVoice.enabled ? .on : .off
+        realVoice.toolTip = "On: her reply audio is made on the Mac (Kokoro, local) and streamed to the phone. Off: the phone's built-in voice."
+        menu.addItem(realVoice)
         let claude = item("Think with Claude", #selector(toggleClaudeBrain))
         claude.state = (settings.useClaudeBrain && Keychain.get(.anthropic) != nil) ? .on : .off
         claude.toolTip = "On: smarter, sees the screen, uses your Anthropic key (cloud). Off: fully-local brain."
