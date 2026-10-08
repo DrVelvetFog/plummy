@@ -470,12 +470,52 @@ final class RealtimeHost {
         Journal.shared.beginTurn(question: question, recalled: Memory.facts())
         let answer: String
         if Settings.shared.useClaudeBrain, Keychain.get(.anthropic) != nil { answer = await runBrainClaude(question) }
+        else if Self.asksAboutIdentity(question) { answer = await answerIdentity(question) }
         else if case let visionModel = OllamaClient.visionModel, !visionModel.isEmpty, Self.wantsScreenAction(question) {
             answer = await runBrainVision(question, model: visionModel)
         }
         else { answer = await runBrainOllama(question) }
         Journal.shared.endTurn(reply: answer)
         return answer
+    }
+
+    /// Identity questions get a deterministic answer: the local models proved they can't be
+    /// trusted to pick the passport tools (the 14B hallucinated a verdict in Thai), and a wrong
+    /// or invented answer about verification is worse than none. The real on-chain check runs,
+    /// and she speaks what it returned — nothing more.
+    private static func asksAboutIdentity(_ question: String) -> Bool {
+        let q = question.lowercased()
+        return ["verified", "verify", "passport", "credential", "real human", "human behind",
+                "who is behind", "who's behind", "are you real", "on-chain", "on chain"]
+            .contains { q.contains($0) }
+    }
+
+    private func answerIdentity(_ question: String) async -> String {
+        let q = question.lowercased()
+        let aboutHuman = ["human", "credential", "real"].contains { q.contains($0) } && !q.contains("are you")
+        if aboutHuman {
+            let p = await PlummyTools.passport("verify-human")
+            guard p["ok"] as? Bool == true else {
+                return finishReply("I couldn't reach the chain to check — try me again in a tick.")
+            }
+            let verified = p["verified"] as? Bool == true
+            let level = p["levelName"] as? String ?? ""
+            Journal.shared.note(tool: "verify_human", label: verified ? "Verified her human's PoR credential" : "Her human's PoR check failed",
+                                result: verified ? "verified at \(level)" : (p["reason"] as? String ?? "not verified"))
+            return finishReply(verified
+                ? "Checked the chain just now — my human holds a live personhood credential, \(level). Properly real. Sorted."
+                : "Hm — the check says no right now: \((p["reason"] as? String) ?? "no live credential"). The credential may have expired.")
+        }
+        let p = await PlummyTools.passport("show")
+        guard p["ok"] as? Bool == true else {
+            return finishReply("I couldn't reach the chain to check — try me again in a tick.")
+        }
+        let kind = p["kind"] as? String ?? "unknown"
+        Journal.shared.note(tool: "show_passport", label: "Checked her agent passport (\(kind))",
+                            result: (p["reason"] as? String) ?? kind)
+        return finishReply(kind == "hybrid"
+            ? "Verified, love. I'm a hybrid agent — my key's delegated by a real human with an on-chain personhood credential, checked just now on Sui testnet. Not my word, the chain's. Sorted."
+            : "The chain says \(kind) right now — \((p["reason"] as? String) ?? "no verified human in my graph"). Worth a look.")
     }
 
     /// The vision brain only speaks screen actions (click, type, scroll…) — it can't answer a
