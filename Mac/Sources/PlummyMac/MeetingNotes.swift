@@ -19,18 +19,29 @@ enum MeetingNotes {
 
     // MARK: Folders
 
-    /// The session's folder, made the first time it's needed.
+    /// The session id as a folder-safe tag. The id arrives from the phone, so it is untrusted
+    /// input: only letters and digits survive, which keeps "/" and ".." out of the folder name.
+    static func tag(for session: String) -> String {
+        let clean = session.lowercased().filter { $0.isLetter || $0.isNumber }
+        return clean.isEmpty ? "untagged" : String(clean.prefix(8))
+    }
+
+    /// The session's folder, made the first time it's needed. Always under `root`: the name is
+    /// built from the sanitized tag, and the result is refused if it would resolve elsewhere.
     static func folder(session: String, started: Date) -> URL {
         let fm = FileManager.default
         try? fm.createDirectory(at: root, withIntermediateDirectories: true)
         writeReadmeIfNeeded()
-        let tag = String(session.prefix(8)).lowercased()
+        let tag = tag(for: session)
         if let existing = (try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil))?
-            .first(where: { $0.lastPathComponent.hasSuffix(tag) }) {
+            .first(where: { $0.lastPathComponent.hasSuffix(" " + tag) }) {
             return existing
         }
         let name = DateFormatter.folderName.string(from: started) + " " + tag
-        let url = root.appendingPathComponent(name, isDirectory: true)
+        var url = root.appendingPathComponent(name, isDirectory: true)
+        if !url.standardizedFileURL.path.hasPrefix(root.standardizedFileURL.path + "/") {
+            url = root.appendingPathComponent("untagged", isDirectory: true)  // unreachable belt-and-braces
+        }
         try? fm.createDirectory(at: url.appendingPathComponent("audio"), withIntermediateDirectories: true)
         return url
     }
