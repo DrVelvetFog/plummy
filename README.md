@@ -60,3 +60,10 @@ On the phone: double tap her to wake her up or put her back to sleep, and press 
 - `Shared/` pairing protocol (Bonjour `_plummy._tcp`, newline JSON) and colors, used by both apps
 - `Mac/` menu bar app (Swift package target `PlummyMac`)
 - `iOS/` iPhone app (SwiftUI)
+
+## License
+
+MIT (see [LICENSE](LICENSE)). Plummy started as a fork of
+[bluey-by-riley](https://github.com/rbrown101010/bluey-by-riley), which its
+author released into the public domain under The Unlicense — see
+[NOTICE](NOTICE) for what came from where.

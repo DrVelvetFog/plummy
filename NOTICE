@@ -1,0 +1,13 @@
+Plummy
+Copyright (c) 2026 Antoni Jagodka
+
+Plummy began as a fork of bluey-by-riley by Riley Brown
+(https://github.com/rbrown101010/bluey-by-riley), released into the
+public domain under The Unlicense. Thanks, Riley.
+
+Everything since — the local Ollama and Claude brains, the split-brain
+vision loop, on-device speech and the Kokoro voice, TLS-PSK pairing,
+the quick-tools pack, cross-session memory, the undo layer and
+confirm-gate, the evidence-tiered action journal, and the on-chain
+Agent Passport — is new work by Antoni Jagodka, licensed under the MIT
+License (see LICENSE).
