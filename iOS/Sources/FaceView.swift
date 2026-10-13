@@ -171,7 +171,8 @@ final class FaceAnimator {
     }
 }
 
-/// The landscape face on pure black: she fills the screen and peeks up from the bottom edge.
+/// The landscape face, video-style: the whole screen is her. A deep plum field with two huge
+/// googly eyes, thin brows and a little smile — the same face as the icon and the teaser.
 struct FaceView: View {
     let animator: FaceAnimator
 
@@ -185,111 +186,109 @@ struct FaceView: View {
                 FaceView.draw(frame, in: &ctx, size: size)
             }
         }
-        .background(Color.black)
+        .background(Color(hex: Palette.berry4))
         .ignoresSafeArea()
     }
 
-    /// Fills a shape with her skin (gradient plus the same soft shine), for eyelids.
-    private static func fillSkin(_ path: Path, in ctx: inout GraphicsContext, body: CGRect) {
-        ctx.fill(path, with: BlobShape.fill(in: body))
-        ctx.fill(path, with: .radialGradient(Gradient(colors: [.white.opacity(0.5), .white.opacity(0)]),
-                                             center: CGPoint(x: body.minX + 246, y: body.minY + 126),
-                                             startRadius: 0, endRadius: 243))
+    /// Her skin is the screen now; lids are drawn in the same plum so they read as skin.
+    private static func fillSkin(_ path: Path, in ctx: inout GraphicsContext) {
+        ctx.fill(path, with: .color(Color(hex: Palette.berry3)))
     }
 
     static func draw(_ f: FaceAnimator.Frame, in ctx: inout GraphicsContext, size: CGSize) {
-        ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.black))
+        // The field: soft radial plum, darker toward the edges — the app icon's gradient, alive.
+        let full = CGRect(origin: .zero, size: size)
+        ctx.fill(Path(full), with: .color(Color(hex: Palette.berry4)))
+        ctx.fill(Path(full), with: .radialGradient(
+            Gradient(colors: [Color(hex: Palette.berry3), Color(hex: Palette.berry4)]),
+            center: CGPoint(x: size.width * 0.5, y: size.height * 0.42),
+            startRadius: 0, endRadius: max(size.width, size.height) * 0.72))
 
         let scale = max(size.width / design.width, size.height / design.height)
-        ctx.translateBy(x: (size.width - design.width * scale) / 2, y: size.height - design.height * scale)
+        ctx.translateBy(x: (size.width - design.width * scale) / 2,
+                        y: (size.height - design.height * scale) / 2)
         ctx.scaleBy(x: scale, y: scale)
 
-        // Whole-body motion: breathing, talking bounce, idle hops, and leaning toward what she looks at.
-        let bounce = -f.talk * 16 + f.breathe * 3 - f.hop
-        let body = CGRect(x: 12, y: 44 + bounce, width: 820, height: 700)
-        let pivot = CGPoint(x: body.midX, y: body.maxY)
-        ctx.translateBy(x: pivot.x, y: pivot.y)
+        // Faint drifting specks, like the teaser's fireflies — barely there.
+        for i in 0..<7 {
+            let ph = f.time * 0.07 + Double(i) * 0.61
+            let x = (ph * 97 + Double(i) * 131).truncatingRemainder(dividingBy: 844)
+            let y = 390 - (ph * 23 + Double(i) * 67).truncatingRemainder(dividingBy: 390)
+            let tw = 0.05 + 0.05 * sin(f.time * 1.3 + Double(i) * 2)
+            ctx.fill(Path(ellipseIn: CGRect(x: x, y: y, width: 5, height: 5)),
+                     with: .color(.white.opacity(tw)))
+        }
+
+        // Whole-face motion: breathing, talking bounce, idle hops, and leaning — pivot at the bottom.
+        let bounce = -f.talk * 14 + f.breathe * 3 - f.hop
+        let pivot = CGPoint(x: design.width / 2, y: design.height)
+        ctx.translateBy(x: pivot.x, y: pivot.y + bounce)
         ctx.rotate(by: .radians(f.lean))
         let stretch = 1 + min(0.03, max(-0.03, f.hop / 900))
         ctx.scaleBy(x: 2 - stretch, y: stretch)
         ctx.translateBy(x: -pivot.x, y: -pivot.y)
 
-        let blob = BlobShape.path(in: body)
-
-        var glow = ctx
-        glow.addFilter(.shadow(color: Color(hex: Palette.berry2, opacity: 0.5), radius: 45, x: 0, y: -10))
-        glow.fill(blob, with: .color(Color(hex: Palette.berry3)))
-
-        ctx.fill(blob, with: BlobShape.fill(in: body))
-        var shine = ctx
-        shine.clip(to: blob)
-        shine.fill(blob, with: .radialGradient(Gradient(colors: [.white.opacity(0.5), .white.opacity(0)]),
-                                               center: CGPoint(x: body.minX + 246, y: body.minY + 126),
-                                               startRadius: 0, endRadius: 243))
-        // A little glossy sparkle on her head.
-        shine.fill(Path(ellipseIn: CGRect(x: body.minX + 190, y: body.minY + 40, width: 46, height: 22)),
-                   with: .color(.white.opacity(0.35)))
-
         let navy = Color(hex: Palette.nose)
         let ink = Color(hex: Palette.ink)
-        ctx.fill(Crown.path(in: CGRect(x: body.minX + 368, y: body.minY - 20 - f.browLift * 0.3, width: 84, height: 56)),
-                 with: .color(navy))
 
-        let eyeY = body.minY + 157
-        let eyes = [CGPoint(x: body.minX + 280, y: eyeY), CGPoint(x: body.minX + 540, y: eyeY)]
+        let eyeY: CGFloat = 186
+        let eyes = [CGPoint(x: 292, y: eyeY), CGPoint(x: 552, y: eyeY)]
         let squash = 1 - f.talk * 0.12
 
-        // Blushy cheeks, rosier when she's happy.
+        // Blushy cheeks below the eyes, rosier when she's happy.
         for (i, c) in eyes.enumerated() {
             let side: CGFloat = i == 0 ? -1 : 1
-            let cheek = CGRect(x: c.x - 45 + side * 62, y: c.y + 96, width: 90, height: 42)
+            let cheek = CGRect(x: c.x - 52 + side * 70, y: c.y + 114, width: 104, height: 46)
             var soft = ctx
-            soft.addFilter(.blur(radius: 10))
-            soft.fill(Path(ellipseIn: cheek), with: .color(Color(hex: 0xF3A6D8, opacity: 0.25 + 0.45 * f.blush)))
+            soft.addFilter(.blur(radius: 12))
+            soft.fill(Path(ellipseIn: cheek), with: .color(Color(hex: 0xF3A6D8, opacity: 0.16 + 0.4 * f.blush)))
         }
 
         for (i, c) in eyes.enumerated() {
             let side: CGFloat = i == 0 ? -1 : 1
 
-            // Little arched eyebrows do a lot of the acting.
+            // Thin arched brows above the big eyes — they do most of the acting.
             var brow = ctx
-            let browY = c.y - 112 - min(18, max(-10, f.browLift)) * 0.7
+            let browY = c.y - 136 - min(18, max(-10, f.browLift)) * 0.7
             brow.translateBy(x: c.x + side * 6, y: browY)
             brow.rotate(by: .radians(f.browTilt * Double(side) * -1 + (f.mood == .thinking && i == 1 ? -0.25 : 0)))
             var arch = Path()
-            arch.move(to: CGPoint(x: -38, y: 6))
-            arch.addQuadCurve(to: CGPoint(x: 38, y: 6), control: CGPoint(x: 0, y: -12))
-            brow.stroke(arch, with: .color(navy), style: StrokeStyle(lineWidth: 14, lineCap: .round))
+            arch.move(to: CGPoint(x: -44, y: 6))
+            arch.addQuadCurve(to: CGPoint(x: 44, y: 6), control: CGPoint(x: 0, y: -14))
+            brow.stroke(arch, with: .color(ink), style: StrokeStyle(lineWidth: 13, lineCap: .round))
 
             switch f.mood {
             case .resting:
                 // Peacefully closed: a soft downward curve.
                 var shut = Path()
-                shut.move(to: CGPoint(x: c.x - 62, y: c.y + 6))
-                shut.addQuadCurve(to: CGPoint(x: c.x + 62, y: c.y + 6), control: CGPoint(x: c.x, y: c.y + 52))
+                shut.move(to: CGPoint(x: c.x - 70, y: c.y + 6))
+                shut.addQuadCurve(to: CGPoint(x: c.x + 70, y: c.y + 6), control: CGPoint(x: c.x, y: c.y + 58))
                 ctx.stroke(shut, with: .color(ink), style: StrokeStyle(lineWidth: 18, lineCap: .round))
 
             case .happy where f.squint > 0.6:
                 var arc = Path()
-                arc.move(to: CGPoint(x: c.x - 60, y: c.y + 34))
-                arc.addQuadCurve(to: CGPoint(x: c.x + 60, y: c.y + 34), control: CGPoint(x: c.x, y: c.y - 54))
+                arc.move(to: CGPoint(x: c.x - 68, y: c.y + 38))
+                arc.addQuadCurve(to: CGPoint(x: c.x + 68, y: c.y + 38), control: CGPoint(x: c.x, y: c.y - 60))
                 ctx.stroke(arc, with: .color(ink), style: StrokeStyle(lineWidth: 24, lineCap: .round))
 
             default:
                 let open = max(0.06, 1 - f.closed) * squash
-                let white = CGRect(x: c.x - 95, y: c.y - 95 * open, width: 190, height: 190 * open)
+                let white = CGRect(x: c.x - 108, y: c.y - 108 * open, width: 216, height: 216 * open)
                 let whitePath = Path(ellipseIn: white)
+                // A hint of depth so the googly eyes sit ON the screen like the video's.
+                var shadow = ctx
+                shadow.addFilter(.shadow(color: Color(hex: Palette.berry4, opacity: 0.55), radius: 14, x: 0, y: 8))
+                shadow.fill(whitePath, with: .color(.white))
                 ctx.fill(whitePath, with: .color(.white))
                 guard open > 0.2 else { continue }
 
                 var g = f.gaze
                 let len = hypot(g.x, g.y)
                 if len > 1 { g = CGPoint(x: g.x / len, y: g.y / len) }
-                // Eyes converge a little when looking down close, and reach further for a livelier look.
-                let reach: CGFloat = 50
-                let r = 46 * f.pupil
+                let reach: CGFloat = 56
+                let r = 54 * f.pupil
                 var pupil = CGPoint(x: c.x + g.x * reach - side * 3, y: c.y + g.y * reach * open)
-                if f.mood == .sleepy { pupil.y = max(pupil.y, c.y) + 28 }  // eyes sink under heavy lids
+                if f.mood == .sleepy { pupil.y = max(pupil.y, c.y) + 30 }  // eyes sink under heavy lids
                 var inside = ctx
                 inside.clip(to: whitePath)
                 inside.fill(Path(ellipseIn: CGRect(x: pupil.x - r, y: pupil.y - r, width: r * 2, height: r * 2)), with: .color(ink))
@@ -300,22 +299,22 @@ struct FaceView: View {
                             with: .color(.white.opacity(0.85)))
                 // Happy cheeks push up from below as she smiles.
                 if f.squint > 0.02 {
-                    let lid = CGRect(x: c.x - 110, y: c.y + 95 * open - 70 * f.squint, width: 220, height: 160)
-                    fillSkin(Path(ellipseIn: lid), in: &inside, body: body)
+                    let lid = CGRect(x: c.x - 124, y: c.y + 108 * open - 76 * f.squint, width: 248, height: 172)
+                    fillSkin(Path(ellipseIn: lid), in: &inside)
                 }
                 // Heavy, droopy lids when she's getting sleepy.
                 if f.mood == .sleepy {
                     let droop = 0.5 + 0.06 * sin(f.time * 1.3)
-                    fillSkin(Path(CGRect(x: c.x - 100, y: white.minY - 10, width: 200, height: white.height * droop + 10)),
-                             in: &inside, body: body)
+                    fillSkin(Path(CGRect(x: c.x - 112, y: white.minY - 10, width: 224, height: white.height * droop + 10)),
+                             in: &inside)
                     inside.stroke(Path { p in
-                        p.move(to: CGPoint(x: c.x - 92, y: white.minY + white.height * droop))
-                        p.addLine(to: CGPoint(x: c.x + 92, y: white.minY + white.height * droop))
+                        p.move(to: CGPoint(x: c.x - 102, y: white.minY + white.height * droop))
+                        p.addLine(to: CGPoint(x: c.x + 102, y: white.minY + white.height * droop))
                     }, with: .color(navy.opacity(0.7)), style: StrokeStyle(lineWidth: 8, lineCap: .round))
                 }
                 // A soft upper lid when she's focused on pointing.
                 if f.mood == .pointing {
-                    fillSkin(Path(CGRect(x: c.x - 100, y: white.minY - 20, width: 200, height: 40)), in: &inside, body: body)
+                    fillSkin(Path(CGRect(x: c.x - 112, y: white.minY - 20, width: 224, height: 42)), in: &inside)
                 }
             }
         }
@@ -324,37 +323,48 @@ struct FaceView: View {
             // Little z's floating up while she naps.
             for i in 0..<3 {
                 let phase = (f.time * 0.35 + Double(i) / 3).truncatingRemainder(dividingBy: 1)
-                let size = 26 + CGFloat(i) * 8
-                let point = CGPoint(x: body.minX + 660 + CGFloat(phase) * 70 + CGFloat(sin(phase * 6)) * 8,
-                                    y: body.minY + 90 - CGFloat(phase) * 110)
-                ctx.draw(Text("z").font(.fredoka(size)).foregroundColor(.white.opacity(0.9 * sin(.pi * phase))), at: point)
+                let zSize = 26 + CGFloat(i) * 8
+                let point = CGPoint(x: 690 + CGFloat(phase) * 70 + CGFloat(sin(phase * 6)) * 8,
+                                    y: 120 - CGFloat(phase) * 100)
+                ctx.draw(Text("z").font(.fredoka(zSize)).foregroundColor(.white.opacity(0.9 * sin(.pi * phase))), at: point)
             }
         }
 
         if f.mood == .thinking {
             for i in 0..<3 {
                 let wobble = sin(f.time * 3 + Double(i)) * 4
-                let dot = CGRect(x: body.minX + 690 + CGFloat(i) * 26, y: body.minY + 40 - CGFloat(i) * 12 + wobble, width: 16, height: 16)
+                let dot = CGRect(x: 680 + CGFloat(i) * 26, y: 70 - CGFloat(i) * 12 + wobble, width: 16, height: 16)
                 ctx.fill(Path(ellipseIn: dot), with: .color(.white.opacity(1 - Double(i) * 0.3)))
             }
         }
 
-        // Her little mouth-nose: opens as she talks, curls into a smile when she's happy.
-        let noseW: CGFloat = 60 - f.talk * 8
-        let noseH: CGFloat = 38 + f.talk * 34
-        let nose = CGRect(x: body.minX + 410 - noseW / 2, y: body.minY + 272 - f.talk * 6, width: noseW, height: noseH)
-        if f.mood == .happy && f.talk < 0.1 {
+        // Her little mouth, centered between the eyes: a resting smile that opens as she talks.
+        let mouth = CGPoint(x: 422, y: 322)
+        if f.talk > 0.12 {
+            let w: CGFloat = 60 - f.talk * 8
+            let h: CGFloat = 38 + f.talk * 34
+            let open = CGRect(x: mouth.x - w / 2, y: mouth.y - 14 - f.talk * 6, width: w, height: h)
+            ctx.fill(Path(ellipseIn: open), with: .color(navy))
+            if f.talk > 0.25 {
+                let tongue = CGRect(x: open.midX - w * 0.28, y: open.maxY - h * 0.38, width: w * 0.56, height: h * 0.3)
+                ctx.fill(Path(ellipseIn: tongue), with: .color(Color(hex: 0xE58BC4, opacity: 0.9)))
+            }
+        } else if f.mood == .happy {
             var smile = Path()
-            smile.move(to: CGPoint(x: nose.minX - 8, y: nose.minY + 8))
-            smile.addQuadCurve(to: CGPoint(x: nose.maxX + 8, y: nose.minY + 8), control: CGPoint(x: nose.midX, y: nose.minY + 58))
+            smile.move(to: CGPoint(x: mouth.x - 52, y: mouth.y - 10))
+            smile.addQuadCurve(to: CGPoint(x: mouth.x + 52, y: mouth.y - 10), control: CGPoint(x: mouth.x, y: mouth.y + 52))
             smile.closeSubpath()
             ctx.fill(smile, with: .color(navy))
         } else {
-            ctx.fill(Path(ellipseIn: nose), with: .color(navy))
-            if f.talk > 0.25 {
-                let tongue = CGRect(x: nose.midX - noseW * 0.28, y: nose.maxY - noseH * 0.38, width: noseW * 0.56, height: noseH * 0.3)
-                ctx.fill(Path(ellipseIn: tongue), with: .color(Color(hex: 0xE58BC4, opacity: 0.9)))
-            }
+            // The video's gentle default smile — smaller when she's resting or sleepy.
+            let calm = f.mood == .resting || f.mood == .sleepy
+            let half: CGFloat = calm ? 26 : 36
+            let depth: CGFloat = calm ? 14 : 26
+            var smile = Path()
+            smile.move(to: CGPoint(x: mouth.x - half, y: mouth.y - depth * 0.3))
+            smile.addQuadCurve(to: CGPoint(x: mouth.x + half, y: mouth.y - depth * 0.3),
+                               control: CGPoint(x: mouth.x, y: mouth.y + depth))
+            ctx.stroke(smile, with: .color(navy), style: StrokeStyle(lineWidth: 13, lineCap: .round))
         }
     }
 }
