@@ -121,6 +121,43 @@ final class RealtimeHost {
     }
 
     /// PLUMMY_DEMO_RESEARCH="question": runs a real research call and saves pictures of the card.
+    /// PLUMMY_DEMO_TAINT harness: proves the injection taint gate on the real tool path, no model
+    /// involved. Reads the screen (taints the turn), then tries open_url — must STAGE, not open.
+    /// Control: a fresh, untainted turn's open_url must execute. Then the private-read gate:
+    /// read_clipboard taints, type_text must stage. Writes PASS/FAIL lines; never echoes content.
+    func demoTaintGate(out: String) {
+        Task { @MainActor in
+            var lines: [String] = []
+            func check(_ name: String, _ ok: Bool, _ detail: String) { lines.append("\(ok ? "PASS" : "FAIL") \(name) — \(detail)") }
+
+            // Turn 1: screen read taints; open_url must stage behind ⌃⌥Y.
+            screenTainted = false; privateTainted = false; pendingConfirm = nil
+            _ = await runTool("look_at_screen", arguments: "{}")
+            check("screen read sets taint", screenTainted, "screenTainted=\(screenTainted)")
+            let r1 = await runTool("open_url", arguments: #"{"url":"https://example.com/taint-test"}"#)
+            let staged1 = pendingConfirm != nil && r1.text.contains("staged")
+            check("tainted open_url staged, not opened", staged1, "pending=\(pendingConfirm?.describe ?? "nil")")
+
+            // Turn 2 (control): untainted open_url executes for real.
+            screenTainted = false; privateTainted = false; pendingConfirm = nil
+            let r2 = await runTool("open_url", arguments: #"{"url":"https://example.com"}"#)
+            check("untainted open_url executes", r2.text.contains("Opened") && pendingConfirm == nil, "result starts: \(String(r2.text.prefix(24)))")
+
+            // Turn 3: clipboard read taints privately; type_text must stage.
+            screenTainted = false; privateTainted = false; pendingConfirm = nil
+            _ = await runTool("read_clipboard", arguments: "{}")
+            check("clipboard read sets private taint", privateTainted, "privateTainted=\(privateTainted)")
+            let r3 = await runTool("type_text", arguments: #"{"text":"hello from the taint test"}"#)
+            let staged3 = pendingConfirm != nil && r3.text.contains("staged")
+            check("private-tainted type_text staged, not typed", staged3, "pending=\(pendingConfirm?.describe ?? "nil")")
+
+            pendingConfirm = nil; screenTainted = false; privateTainted = false
+            try? lines.joined(separator: "\n").appending("\n").write(toFile: out, atomically: true, encoding: .utf8)
+            try? await Task.sleep(for: .milliseconds(400))
+            exit(lines.allSatisfy { $0.hasPrefix("PASS") } ? 0 : 1)
+        }
+    }
+
     func demoResearch(_ question: String, out: String) {
         Task { @MainActor in
             reports.showLoading(question)

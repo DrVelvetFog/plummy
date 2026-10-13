@@ -58,6 +58,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 exit(0)
             }
         }
+        if ProcessInfo.processInfo.environment["PLUMMY_DEMO_TAINT"] != nil {
+            host.demoTaintGate(out: ProcessInfo.processInfo.environment["PLUMMY_DEMO_TAINT_OUT"] ?? "/tmp/plummy-taint-report.txt")
+        }
         if let question = ProcessInfo.processInfo.environment["PLUMMY_DEMO_RESEARCH"] {
             host.demoResearch(question, out: ProcessInfo.processInfo.environment["PLUMMY_DEMO_OUT"] ?? "/tmp/plummy-report")
         }
