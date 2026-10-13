@@ -6,6 +6,7 @@ import PlummyShared
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let settings = Settings.shared
     private let overlay = CursorOverlay()
+    private let facePanel = FacePanel()
     private let server = PhoneServer()
     private var statusItem: NSStatusItem!
     private lazy var host = RealtimeHost(overlay: overlay)
@@ -18,11 +19,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         signal(SIGUSR1, SIG_IGN)
         signal(SIGUSR2, SIG_IGN)
         let hide = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
-        hide.setEventHandler { [weak self] in self?.overlay.setHidden(true) }
+        hide.setEventHandler { [weak self] in
+            self?.overlay.setHidden(true)
+            self?.facePanel.setHidden(true)
+        }
         hide.resume()
         hideSignal = hide
         let show = DispatchSource.makeSignalSource(signal: SIGUSR2, queue: .main)
-        show.setEventHandler { [weak self] in self?.overlay.setHidden(false) }
+        show.setEventHandler { [weak self] in
+            self?.overlay.setHidden(false)
+            self?.facePanel.setHidden(false)
+        }
         show.resume()
         showSignal = show
     }
@@ -36,8 +43,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         statusItem.menu = menu
 
-        overlay.onFace = { [weak self] face in self?.server.send(face) }
+        overlay.onFace = { [weak self] face in
+            self?.server.send(face)
+            self?.facePanel.receive(face)
+        }
         overlay.start()
+        if FacePanel.enabled { facePanel.show() }
         setupOverlaySignals()
         showDemoBubbleIfAsked()
         checkPermissions()
@@ -250,6 +261,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func stopActions() {
         host.stopActions()
+    }
+
+    @objc private func toggleFacePanel() {
+        FacePanel.enabled.toggle()
+        if FacePanel.enabled { facePanel.show() } else { facePanel.hide() }
     }
 
     @objc private func toggleRealVoice() {
@@ -485,6 +501,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item("What She Remembers…", #selector(showMemory)))
         menu.addItem(item("Her Passport…", #selector(showPassport)))
         menu.addItem(item("Anthropic API Key…", #selector(editAnthropicKey)))
+        let face = item("Show Her Face", #selector(toggleFacePanel))
+        face.state = FacePanel.enabled ? .on : .off
+        face.toolTip = "A little floating window with her face on it — the same face the phone draws. Drag her anywhere; click to boop."
+        menu.addItem(face)
         let realVoice = item("Her Real Voice", #selector(toggleRealVoice))
         realVoice.state = KokoroVoice.enabled ? .on : .off
         realVoice.toolTip = "On: her reply audio is made on the Mac (Kokoro, local) and streamed to the phone. Off: the phone's built-in voice."

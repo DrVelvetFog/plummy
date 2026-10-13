@@ -21,7 +21,9 @@ private struct Spring {
 }
 
 /// Smooths what the Mac asks for into lifelike motion: darting eyes, brows, blinks, leaning, hops.
-final class FaceAnimator {
+public final class FaceAnimator {
+    public init() {}
+
     struct Frame {
         var gaze: CGPoint
         var mood: Mood
@@ -62,16 +64,16 @@ final class FaceAnimator {
     private var nextJitter = 0.0
     private var nextHop = 6.0
 
-    /// Set while a finger is on the screen, in -1…1 gaze units.
-    var touchGaze: CGPoint?
-    /// Mood set on the phone itself (waking up, talking).
-    var localMood: Mood?
-    /// Loudness of the voice playing on this phone, 0…1.
-    var localTalk: () -> Double = { 0 }
+    /// Set while a finger is on the screen (or the Mac pointer is near her), in -1…1 gaze units.
+    public var touchGaze: CGPoint?
+    /// Mood set on this device itself (waking up, talking, a boop).
+    public var localMood: Mood?
+    /// Loudness of the voice playing on this device, 0…1.
+    public var localTalk: () -> Double = { 0 }
     /// True while she's awake and talking with you. In follow mode her eyes stay locked on your mouse.
-    var awake = false
+    public var awake = false
 
-    func receive(_ face: FaceState, at time: Double) {
+    public func receive(_ face: FaceState, at time: Double) {
         target = face
         lastPacket = time
     }
@@ -173,13 +175,15 @@ final class FaceAnimator {
 
 /// The landscape face, video-style: the whole screen is her. A deep plum field with two huge
 /// googly eyes, thin brows and a little smile — the same face as the icon and the teaser.
-struct FaceView: View {
+public struct FaceView: View {
     let animator: FaceAnimator
+
+    public init(animator: FaceAnimator) { self.animator = animator }
 
     // The design is drawn on an 844 × 390 landscape phone.
     static let design = CGSize(width: 844, height: 390)
 
-    var body: some View {
+    public var body: some View {
         TimelineView(.animation) { timeline in
             Canvas { ctx, size in
                 let frame = animator.step(timeline.date.timeIntervalSinceReferenceDate)

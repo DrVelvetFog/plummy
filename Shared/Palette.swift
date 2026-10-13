@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Plummy — elderberry / plum colors, as 0xRRGGBB.
 public enum Palette {
@@ -16,5 +17,13 @@ public enum Palette {
 
     public static func rgb(_ hex: UInt32) -> (r: Double, g: Double, b: Double) {
         (Double((hex >> 16) & 0xFF) / 255, Double((hex >> 8) & 0xFF) / 255, Double(hex & 0xFF) / 255)
+    }
+}
+
+public extension Color {
+    /// A palette colour, as 0xRRGGBB. Shared so the phone and the Mac draw her from one place.
+    init(hex: UInt32, opacity: Double = 1) {
+        let c = Palette.rgb(hex)
+        self.init(.sRGB, red: c.r, green: c.g, blue: c.b, opacity: opacity)
     }
 }

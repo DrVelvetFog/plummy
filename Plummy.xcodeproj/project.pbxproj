@@ -11,6 +11,7 @@
 		0F27A6F5B743514BD536F167 /* MacLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35A781A36CABCDADE9F450D9 /* MacLink.swift */; };
 		1CD281E50B98A8E557C70CAA /* IBMPlexMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EBA96F8C2AEEBBD1026F9A3E /* IBMPlexMono-Regular.ttf */; };
 		23569D8E7A58272389775797 /* OFL-IBMPlex.txt in Resources */ = {isa = PBXBuildFile; fileRef = 9CFBC0A7A7F1861E19A34D32 /* OFL-IBMPlex.txt */; };
+		368A39A077895C7DD7E20862 /* FaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF73CB23987E45B13EB4F61D /* FaceView.swift */; };
 		38F9E672332FA9D13EB18C7E /* Fredoka.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D798722B3B60B3B386BB499B /* Fredoka.ttf */; };
 		46B675F84C35C437A26AEA0F /* Palette.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A7E06D8C3F63DAFDF0B58C /* Palette.swift */; };
 		4FEF099161D5EB4E9DA770DE /* IBMPlexSans.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 36B0335F2D6B9141C5582CA2 /* IBMPlexSans.ttf */; };
@@ -22,7 +23,7 @@
 		8543E61CC682F089F325036D /* SoundButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = D57275BB547CD40E001F290A /* SoundButton.swift */; };
 		8B0FE4D6BBDB3EF29D0A4C79 /* LiveVoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87A5F1E3147207CCA68CF5D8 /* LiveVoice.swift */; };
 		98165AD0E458778C6A4578AD /* OFL-Fredoka.txt in Resources */ = {isa = PBXBuildFile; fileRef = 12F025BC5494D4E379819F6D /* OFL-Fredoka.txt */; };
-		9C47F065085D528E6E5ADD7F /* FaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EC7CE085FC98B82F3C9FEE8 /* FaceView.swift */; };
+		9A2E4CC497174BB3E219EDA5 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A501DB05186436DE17C1B8F7 /* Typography.swift */; };
 		A8B86955345C5A66FB4169B8 /* ChunkRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B8D1E912EC8FC5AD7EBBCB2 /* ChunkRecorder.swift */; };
 		B6E3096E9FEB01617C871B7F /* PlummyAppView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D19396292D8E718528F059F /* PlummyAppView.swift */; };
 		CDCE5A73C4A8FD7695886377 /* PlummyLink.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A8B88BD306DDAD4DEE7DA43 /* PlummyLink.swift */; };
@@ -38,12 +39,13 @@
 		6B8D1E912EC8FC5AD7EBBCB2 /* ChunkRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChunkRecorder.swift; sourceTree = "<group>"; };
 		87A5F1E3147207CCA68CF5D8 /* LiveVoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveVoice.swift; sourceTree = "<group>"; };
 		8D19396292D8E718528F059F /* PlummyAppView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlummyAppView.swift; sourceTree = "<group>"; };
-		8EC7CE085FC98B82F3C9FEE8 /* FaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceView.swift; sourceTree = "<group>"; };
 		942A0A0D4CDCDB3B6A696A7C /* Plummy.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Plummy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9CFBC0A7A7F1861E19A34D32 /* OFL-IBMPlex.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "OFL-IBMPlex.txt"; sourceTree = "<group>"; };
+		A501DB05186436DE17C1B8F7 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		BBC7BF794D8DD21FD7AF0A6C /* PlummyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlummyApp.swift; sourceTree = "<group>"; };
 		C0A7E06D8C3F63DAFDF0B58C /* Palette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Palette.swift; sourceTree = "<group>"; };
 		CAD4B7A0AB1A8E70CDD82804 /* BlobShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlobShape.swift; sourceTree = "<group>"; };
+		CF73CB23987E45B13EB4F61D /* FaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FaceView.swift; sourceTree = "<group>"; };
 		D57275BB547CD40E001F290A /* SoundButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundButton.swift; sourceTree = "<group>"; };
 		D798722B3B60B3B386BB499B /* Fredoka.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Fredoka.ttf; sourceTree = "<group>"; };
 		E9B18F3E06B4326C9996A0C0 /* PairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingView.swift; sourceTree = "<group>"; };
@@ -86,7 +88,6 @@
 			children = (
 				CAD4B7A0AB1A8E70CDD82804 /* BlobShape.swift */,
 				6B8D1E912EC8FC5AD7EBBCB2 /* ChunkRecorder.swift */,
-				8EC7CE085FC98B82F3C9FEE8 /* FaceView.swift */,
 				87A5F1E3147207CCA68CF5D8 /* LiveVoice.swift */,
 				35A781A36CABCDADE9F450D9 /* MacLink.swift */,
 				E9B18F3E06B4326C9996A0C0 /* PairingView.swift */,
@@ -112,8 +113,10 @@
 		DB6B4FE6CF0EEFFAFA43B906 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				CF73CB23987E45B13EB4F61D /* FaceView.swift */,
 				C0A7E06D8C3F63DAFDF0B58C /* Palette.swift */,
 				6A8B88BD306DDAD4DEE7DA43 /* PlummyLink.swift */,
+				A501DB05186436DE17C1B8F7 /* Typography.swift */,
 				6DAD8E3ECE59F7F4F9AA8EBB /* Fonts */,
 			);
 			path = Shared;
@@ -198,7 +201,7 @@
 			files = (
 				8129BACF2B3E25A1DA55C2C2 /* BlobShape.swift in Sources */,
 				A8B86955345C5A66FB4169B8 /* ChunkRecorder.swift in Sources */,
-				9C47F065085D528E6E5ADD7F /* FaceView.swift in Sources */,
+				368A39A077895C7DD7E20862 /* FaceView.swift in Sources */,
 				8B0FE4D6BBDB3EF29D0A4C79 /* LiveVoice.swift in Sources */,
 				0F27A6F5B743514BD536F167 /* MacLink.swift in Sources */,
 				6A60B92F9706016A7A37E98F /* PairingView.swift in Sources */,
@@ -208,6 +211,7 @@
 				CDCE5A73C4A8FD7695886377 /* PlummyLink.swift in Sources */,
 				09AF065B43BFA451B84BECF9 /* SessionStore.swift in Sources */,
 				8543E61CC682F089F325036D /* SoundButton.swift in Sources */,
+				9A2E4CC497174BB3E219EDA5 /* Typography.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
