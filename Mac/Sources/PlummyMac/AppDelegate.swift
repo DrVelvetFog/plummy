@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let settings = Settings.shared
     private let overlay = CursorOverlay()
     private let facePanel = FacePanel()
+    private let activityPanel = ActivityPanel()
     private let server = PhoneServer()
     private var statusItem: NSStatusItem!
     private lazy var host = RealtimeHost(overlay: overlay)
@@ -49,6 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         overlay.start()
         if FacePanel.enabled { facePanel.show() }
+        activityPanel.onStop = { [weak self] in self?.stopActions() }
+        Journal.onActivity = { [weak self] label in self?.activityPanel.update(label) }
         setupOverlaySignals()
         showDemoBubbleIfAsked()
         checkPermissions()
@@ -261,11 +264,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func stopActions() {
         host.stopActions()
+        activityPanel.update("Stopped")
     }
 
     @objc private func toggleFacePanel() {
         FacePanel.enabled.toggle()
         if FacePanel.enabled { facePanel.show() } else { facePanel.hide() }
+    }
+
+    @objc private func toggleActivityPanel() {
+        ActivityPanel.enabled.toggle()
+        if !ActivityPanel.enabled { activityPanel.hide() }
     }
 
     @objc private func toggleRealVoice() {
@@ -505,6 +514,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         face.state = FacePanel.enabled ? .on : .off
         face.toolTip = "A little floating window with her face on it — the same face the phone draws. Drag her anywhere; click to boop."
         menu.addItem(face)
+        let activity = item("Show What She's Doing", #selector(toggleActivityPanel))
+        activity.state = ActivityPanel.enabled ? .on : .off
+        activity.toolTip = "A small card that shows what she's doing right now, with a Stop button. It appears while she acts and fades when she's idle."
+        menu.addItem(activity)
         let realVoice = item("Her Real Voice", #selector(toggleRealVoice))
         realVoice.state = KokoroVoice.enabled ? .on : .off
         realVoice.toolTip = "On: her reply audio is made on the Mac (Kokoro, local) and streamed to the phone. Off: the phone's built-in voice."

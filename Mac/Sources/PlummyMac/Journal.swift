@@ -18,6 +18,10 @@ enum JournalTier: String { case ran, read, told, recalled, inferred }
 final class Journal {
     static let shared = Journal()
 
+    /// Fired for every action with its human label, for the live activity view — independent of whether
+    /// the on-disk journal is turned on.
+    static var onActivity: ((String) -> Void)?
+
     private struct Claim {
         let id: String
         let text: String
@@ -81,6 +85,7 @@ final class Journal {
     /// whole-screen read. Pointing and sleeping are skipped (no lasting effect). Called from the main
     /// actor at the point the tool actually executed, so a refused or staged action is never logged.
     func note(tool: String, label: String, result: String, screen: Bool = false) {
+        Self.onActivity?(label)  // live activity view — fires even when the disk journal is off
         guard on, let tier = Self.tier(for: tool) else { return }
         let evidence: [[String: Any]]
         switch tier {

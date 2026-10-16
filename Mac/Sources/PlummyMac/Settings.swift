@@ -56,6 +56,12 @@ final class Settings {
         set { defaults.set(newValue, forKey: "confirmRisky"); onChange?() }
     }
 
+    /// Show a small "what she's doing right now" card with a Stop button while she acts. On by default.
+    var activityPanel: Bool {
+        get { defaults.object(forKey: "activityPanel") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "activityPanel"); onChange?() }
+    }
+
     /// Keep an evidence-tiered record of what she does and reads, in ~/Documents/Plummy Journal.
     /// On by default; local only. Turn it off for no disk writes at all.
     var journalActions: Bool {
