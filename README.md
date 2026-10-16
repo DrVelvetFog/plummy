@@ -38,7 +38,7 @@ An assistant that reads your screen and controls your Mac deserves a plain state
 
 - Pairing: the Mac's only command listener requires a TLS handshake keyed from the pairing code (60-bit random). No code, no connection; re-keying drops every phone.
 - Terminals are off-limits: `open_app` refuses Terminal, iTerm, Script Editor, Automator, Console and Keychain Access, by requested *and* resolved name — screen text can't reach a shell.
-- Password fields are never typed into; log-out/lock/force-quit shortcuts are never pressed.
+- Password fields are never typed into, and they're painted black in the screenshot before any model — the local vision model or the optional Claude brain — ever sees it or its OCR text; log-out/lock/force-quit shortcuts are never pressed.
 - Network input is capped (64 MB per connection) and note folders are confined to `~/Documents/Plummy Notes/` regardless of what the phone sends.
 
 **Enforced by your keypress (⌃⌥Y)** — staged, never executed on the model's say-so:

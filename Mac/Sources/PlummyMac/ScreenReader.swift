@@ -91,9 +91,44 @@ enum ScreenReader {
         let size = CGSize(width: display.width, height: display.height)
         // Read the front app's controls at the same time as the text.
         let controlsTask = Task.detached(priority: .userInitiated) { ControlsReader.read(screen: size) }
-        let lines = try recognize(image, in: size)
+        let rawLines = try recognize(image, in: size)
         let controls = await controlsTask.value
-        return ScreenSnapshot(jpeg: jpeg(image, maxEdge: 1100), lines: lines, size: size, app: controls.app, controls: controls.controls)
+        // Credential redaction (enforced in code): paint every password field black before any model —
+        // the local vision model or the optional Claude brain — sees the screenshot or its OCR text.
+        // Same discipline as refusing to type into one, applied to what's captured.
+        if controls.secure.isEmpty {
+            return ScreenSnapshot(jpeg: jpeg(image, maxEdge: 1100), lines: rawLines, size: size, app: controls.app, controls: controls.controls)
+        }
+        let safe = redact(image, rects: controls.secure, points: size)
+        let lines = (try? recognize(safe, in: size)) ?? dropLines(rawLines, covering: controls.secure)
+        return ScreenSnapshot(jpeg: jpeg(safe, maxEdge: 1100), lines: lines, size: size, app: controls.app, controls: controls.controls)
+    }
+
+    /// Paint opaque black over each password-field rectangle so no model sees its pixels.
+    /// `rects` are in points (top-left origin, y down); the CGImage is in pixels (origin bottom-left).
+    private static func redact(_ image: CGImage, rects: [CGRect], points: CGSize) -> CGImage {
+        let w = image.width, h = image.height
+        guard points.width > 0, points.height > 0,
+              let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return image }
+        let sx = CGFloat(w) / points.width, sy = CGFloat(h) / points.height
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+        ctx.setFillColor(red: 0, green: 0, blue: 0, alpha: 1)
+        for r in rects {
+            let p = r.insetBy(dx: -4, dy: -4) // a little margin so edges and labels don't peek
+            ctx.fill(CGRect(x: p.minX * sx, y: (points.height - p.maxY) * sy, width: p.width * sx, height: p.height * sy))
+        }
+        return ctx.makeImage() ?? image
+    }
+
+    /// Fallback if re-OCR fails: drop any line or word that sits inside a password field.
+    private static func dropLines(_ lines: [(line: Target, words: [Target])], covering rects: [CGRect]) -> [(line: Target, words: [Target])] {
+        func hidden(_ r: CGRect) -> Bool { rects.contains { $0.insetBy(dx: -4, dy: -4).intersects(r) } }
+        return lines.compactMap { entry in
+            if hidden(entry.line.rect) { return nil }
+            return (entry.line, entry.words.filter { !hidden($0.rect) })
+        }
     }
 
     static func recognize(_ image: CGImage, in size: CGSize) throws -> [(line: Target, words: [Target])] {

@@ -21,10 +21,10 @@ enum ControlsReader {
     private static let fieldKinds: Set<String> = ["text field", "text area", "combo box", "search field"]
 
     /// The frontmost app's name and its visible controls, in reading order. Stays within a small time budget.
-    static func read(screen: CGSize, limit: Int = 140, budget: TimeInterval = 0.45) -> (app: String?, controls: [Control]) {
-        guard let app = NSWorkspace.shared.frontmostApplication else { return (nil, []) }
+    static func read(screen: CGSize, limit: Int = 140, budget: TimeInterval = 0.45) -> (app: String?, controls: [Control], secure: [CGRect]) {
+        guard let app = NSWorkspace.shared.frontmostApplication else { return (nil, [], []) }
         let name = app.localizedName
-        guard ComputerControl.isTrusted else { return (name, []) }
+        guard ComputerControl.isTrusted else { return (name, [], []) }
 
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         AXUIElementSetMessagingTimeout(appElement, 0.25)
@@ -41,6 +41,7 @@ enum ControlsReader {
         var queue = roots
         var visited = 0
         var found: [(kind: String, label: String, rect: CGRect)] = []
+        var secureRects: [CGRect] = []
         var seen = Set<String>()
 
         while !queue.isEmpty, visited < 5000, Date() < deadline {
@@ -48,6 +49,10 @@ enum ControlsReader {
             visited += 1
             let role: String = attribute(element, kAXRoleAttribute) ?? ""
             let subrole: String = attribute(element, kAXSubroleAttribute) ?? ""
+            // Collect password fields so the capture path can black them out before any model sees them.
+            if subrole == "AXSecureTextField", let secRect = frame(of: element), secRect.width > 1, secRect.height > 1, visible.intersects(secRect) {
+                secureRects.append(secRect)
+            }
             let kind = kinds[subrole == "AXSearchField" ? "AXSearchField" : role]
             if let kind, let rect = frame(of: element), rect.width > 3, rect.height > 3, visible.intersects(rect) {
                 let label = describe(element, kind: kind)
@@ -70,7 +75,7 @@ enum ControlsReader {
         let controls = found.prefix(limit).enumerated().map { i, item in
             Control(id: "C\(i + 1)", kind: item.kind, label: item.label, rect: item.rect)
         }
-        return (name, controls)
+        return (name, controls, secureRects)
     }
 
     /// The focused element of the front app: where typing will go, and whether it's a password field.
