@@ -23,6 +23,39 @@ enum OllamaClient {
         return URL(string: base + "/api/chat") ?? URL(string: "http://127.0.0.1:11434/api/chat")!
     }
 
+    /// Ollama's base URL (no path) — for the first-run readiness check and model pulls.
+    static var baseURL: URL {
+        let host = UserDefaults.standard.string(forKey: "ollamaHost")?.trimmingCharacters(in: .whitespaces) ?? ""
+        return URL(string: host.isEmpty ? "http://127.0.0.1:11434" : host) ?? URL(string: "http://127.0.0.1:11434")!
+    }
+
+    enum Readiness { case ready, ollamaDown, modelMissing(String) }
+
+    /// Is the local brain ready? Ollama reachable AND the text model pulled (the vision model is optional).
+    static func readiness() async -> Readiness {
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/tags"))
+        request.timeoutInterval = 4
+        guard let pair = try? await URLSession.shared.data(for: request),
+              (pair.1 as? HTTPURLResponse)?.statusCode == 200 else { return .ollamaDown }
+        let json = (try? JSONSerialization.jsonObject(with: pair.0)) as? [String: Any]
+        let names = ((json?["models"] as? [[String: Any]]) ?? []).compactMap { $0["name"] as? String }
+        let want = model
+        let have = names.contains { $0 == want || $0.hasPrefix(want + ":") || $0 == want + ":latest" || want.hasPrefix($0) }
+        return have ? .ready : .modelMissing(want)
+    }
+
+    /// Download a model into Ollama over its own HTTP API (blocks until done; no CLI, no key, stays on the Mac).
+    static func pull(_ name: String) async throws {
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/pull"))
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 3600  // a one-time multi-GB download
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["model": name, "stream": false])
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard code == 200 else { throw BrainError.badStatus(code, String(data: data, encoding: .utf8) ?? "") }
+    }
+
     /// One tool the model wants to run. `arguments` is a JSON string, ready for RealtimeHost.runTool.
     struct ToolCall { let name: String; let arguments: String }
     /// One assistant turn: some text, and/or some tool calls.

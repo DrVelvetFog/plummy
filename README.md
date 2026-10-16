@@ -55,7 +55,9 @@ An assistant that reads your screen and controls your Mac deserves a plain state
 
 You need a Mac (Apple Silicon with 16 GB recommended — the default brain is a 14B model; macOS 14+), an iPhone, Xcode for the phone app (the Mac app needs only the Command Line Tools), and [Ollama](https://ollama.com).
 
-1. **The brain.** `ollama pull qwen2.5:14b` — and if you want her eyes, `ollama pull qwen3-vl:2b-instruct` too (turn them on later with **Local Vision Model…** in the menu).
+**No API key, no account, no cloud — her brain runs on your Mac and nothing leaves it.** (There's one optional cloud feature, off until you turn it on; see [Privacy](#privacy).)
+
+1. **The brain.** Install [Ollama](https://ollama.com) and open it once so it's running. You don't have to pull a model by hand — on first launch Plummy checks what's there and **offers to download her brain for you** (and **Check Setup…** in the menu re-runs that check). Prefer to do it yourself: `ollama pull qwen2.5:14b`, plus `ollama pull qwen3-vl:2b-instruct` for her eyes (**Local Vision Model…** in the menu).
 2. **The Mac app.** `./scripts/build-mac.sh && open build/Plummy.app`. Grant Accessibility, Screen Recording, Microphone, Local Network and Speech Recognition when macOS asks — Reminders and Calendar only come up the first time she touches them.
 3. **The phone app.** Open `Plummy.xcodeproj` in Xcode, pick your team under Signing & Capabilities, run on the iPhone. Lay the phone on its side under your monitor — she's landscape-only on purpose.
 4. **Pair.** Mac menu bar → Plummy → **Pairing Code…**, then type the code on the phone. The link is TLS, keyed off that code.

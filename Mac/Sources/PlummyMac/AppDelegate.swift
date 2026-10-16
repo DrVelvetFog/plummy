@@ -55,6 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setupOverlaySignals()
         showDemoBubbleIfAsked()
         checkPermissions()
+        checkBrainReady()
         if let path = ProcessInfo.processInfo.environment["PLUMMY_DEMO_TRANSCRIBE"], let audio = FileManager.default.contents(atPath: path) {
             // Transcribes an audio file into a throwaway notes folder, prints the lines and quits.
             Task {
@@ -222,6 +223,77 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let text = "accessibility=\(ComputerControl.isTrusted) screenRecording=\(CGPreflightScreenCaptureAccess()) computerControl=\(Settings.shared.computerControl)\n"
             try? text.write(to: status, atomically: true, encoding: .utf8)
         }.fire()
+    }
+
+    // MARK: First-run setup (the local brain)
+
+    /// On launch, make sure Ollama is running and her brain model is downloaded. If not, guide the user
+    /// through it — no Terminal, no API key, nothing leaves the Mac.
+    private func checkBrainReady() {
+        guard ProcessInfo.processInfo.environment["PLUMMY_DEMO_OUT"] == nil,
+              ProcessInfo.processInfo.environment["PLUMMY_DEMO_TRANSCRIBE"] == nil else { return }
+        Task { @MainActor in
+            switch await OllamaClient.readiness() {
+            case .ready: break
+            case .ollamaDown: self.promptInstallOllama()
+            case .modelMissing(let model): self.promptDownloadModel(model)
+            }
+        }
+    }
+
+    @objc private func checkSetup() { checkBrainReady() }
+
+    private func promptInstallOllama() {
+        let alert = NSAlert()
+        alert.messageText = "Plummy needs Ollama"
+        alert.informativeText = """
+        Plummy thinks on your Mac with Ollama — no API key, and nothing leaves the machine. It isn't running yet.
+
+        Install Ollama (it's free), open it once so it's running, then choose "Check Setup" in Plummy's menu.
+        """
+        alert.addButton(withTitle: "Get Ollama")
+        alert.addButton(withTitle: "Later")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn, let url = URL(string: "https://ollama.com/download") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    private func promptDownloadModel(_ model: String) {
+        let alert = NSAlert()
+        alert.messageText = "Download Plummy's brain?"
+        alert.informativeText = """
+        Ollama is running, but her brain model (\(model)) isn't downloaded yet. It's a one-time download of a few gigabytes and stays on your Mac — no key, nothing leaves the machine.
+
+        Download it now? You can keep using your Mac while it runs, and I'll tell you when she's ready.
+        """
+        alert.addButton(withTitle: "Download")
+        alert.addButton(withTitle: "Later")
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn { startBrainDownload(model) }
+    }
+
+    private func startBrainDownload(_ model: String) {
+        activityPanel.update("Downloading her brain (\(model))…")
+        Task { @MainActor in
+            do {
+                try await OllamaClient.pull(model)
+                activityPanel.update("She's ready.")
+                self.setupResult(title: "Plummy's ready", text: "Her brain (\(model)) is downloaded. Hold the phone's screen and ask her something.")
+            } catch {
+                self.setupResult(title: "The download didn't finish",
+                                 text: "\(error.localizedDescription)\n\nRetry from \u{201C}Check Setup\u{201D} in the menu, or run it yourself: ollama pull \(model)")
+            }
+        }
+    }
+
+    private func setupResult(title: String, text: String) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = text
+        alert.addButton(withTitle: "OK")
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     @objc private func openNotes() {
@@ -530,6 +602,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         vision.state = OllamaClient.visionModel.isEmpty ? .off : .on
         vision.toolTip = "Give the offline (Ollama) brain eyes with a local vision model. Empty = text-only."
         menu.addItem(vision)
+        let setup = item("Check Setup…", #selector(checkSetup))
+        setup.toolTip = "Make sure Ollama is running and her brain model is downloaded — the local, no-key brain. Offers to fetch what's missing."
+        menu.addItem(setup)
         menu.addItem(item("Pairing Code…", #selector(showPairingCode)))
         menu.addItem(.separator())
 
